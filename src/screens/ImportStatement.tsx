@@ -2,16 +2,17 @@ import { useState } from 'preact/hooks';
 import { t, fmtDay } from '../i18n';
 import { getData, update, uid, upsert } from '../store/store';
 import { txEffect, round2 } from '../logic/finance';
-import type { Account, InstallmentPlan, Tx } from '../store/types';
+import type { Account, Debt, InstallmentPlan, Tx } from '../store/types';
 import { Icon } from '../components/Icon';
 import { TopBar, Field, Money, toast, Collapse, catName } from '../components/ui';
 import {
   loadPdfPages, parseAlRajhiCardStatement, toAccountPatch, toInstallmentPlans, toTxProposals,
   type ParsedCardStatement, type TxProposal
 } from '../logic/statementImport';
+import { parseQuickImport, type QuickImportResult } from '../logic/quickImport';
 import { pickFile } from '../components/image';
 
-type Stage = 'idle' | 'busy' | { parsed: ParsedCardStatement } | { error: string };
+type Stage = 'idle' | 'busy' | { parsed: ParsedCardStatement } | { quick: QuickImportResult } | { error: string };
 
 const CAT_OPTIONS = ['c-shop', 'c-subs', 'c-food-rest', 'c-food-deliv', 'c-groc', 'c-fuel-gas', 'c-fun', 'c-health', 'c-bills', 'c-other'];
 
@@ -33,15 +34,26 @@ export function ImportStatement() {
   const [newName, setNewName] = useState('');
   const [fundingId, setFundingId] = useState<string | undefined>(d.settings.salaryAccountId);
   const [done, setDone] = useState(false);
+  const [quickLoans, setQuickLoans] = useState<(Debt & { include: boolean })[]>([]);
+  const [quickCards, setQuickCards] = useState<(Account & { include: boolean })[]>([]);
 
   const creditAccounts = d.accounts.filter((a) => a.kind === 'credit' && !a.archived);
   const liquidAccounts = d.accounts.filter((a) => a.kind !== 'credit' && !a.archived);
 
   const choose = async () => {
-    const f = await pickFile('application/pdf,.pdf');
+    const f = await pickFile('application/pdf,.pdf,application/json,.json');
     if (!f) return;
     setStage('busy');
+    const isJson = f.type === 'application/json' || f.name.toLowerCase().endsWith('.json');
     try {
+      if (isJson) {
+        const result = parseQuickImport(await f.text());
+        if (result.loans.length === 0 && result.cards.length === 0) return setStage({ error: 'read-failed' });
+        setStage({ quick: result });
+        setQuickLoans(result.loans.map((l) => ({ ...l, include: true })));
+        setQuickCards(result.cards.map((c) => ({ ...c, include: true })));
+        return;
+      }
       const pages = await loadPdfPages(f);
       const parsed = parseAlRajhiCardStatement(pages);
       if ('error' in parsed) return setStage({ error: parsed.error });
@@ -53,6 +65,18 @@ export function ImportStatement() {
     } catch {
       setStage({ error: 'read-failed' });
     }
+  };
+
+  const commitQuick = () => {
+    const loans = quickLoans.filter((l) => l.include).map(({ include, ...rest }) => rest);
+    const cards = quickCards.filter((c) => c.include).map(({ include, ...rest }) => rest);
+    update((x) => ({
+      ...x,
+      debts: loans.reduce((list, l) => upsert(list, l), x.debts),
+      accounts: cards.reduce((list, c) => upsert(list, c), x.accounts)
+    }));
+    setDone(true);
+    toast(t('done'));
   };
 
   if (stage === 'idle' || stage === 'busy') {
@@ -79,6 +103,70 @@ export function ImportStatement() {
           <span class="xs faint center" style="line-height:1.7">{t('imp.notRecognizedSub')}</span>
         </div>
         <button class="btn outline" onClick={() => setStage('idle')}>{t('imp.tryAgain')}</button>
+      </div>
+    );
+  }
+
+  if ('quick' in stage) {
+    if (done) {
+      const firstLoan = quickLoans.find((l) => l.include);
+      const firstCard = quickCards.find((c) => c.include);
+      const href = firstLoan ? '/debt/' + firstLoan.id : firstCard ? '/account/' + firstCard.id : '/debts';
+      return (
+        <div class="screen no-nav">
+          <TopBar back title={t('imp.title')} fallback="/settings" />
+          <div class="card pad col gap10" style="align-items:center;padding:28px">
+            <Icon name="check" size={30} />
+            <span class="semi">{t('imp.doneTitle')}</span>
+          </div>
+          <div class="grid2">
+            <a href={'#' + href} class="btn outline">{t('imp.viewItem')}</a>
+            <button class="btn" onClick={() => { setStage('idle'); setDone(false); }}>{t('imp.importMore')}</button>
+          </div>
+        </div>
+      );
+    }
+    const setLoan = (id: string, patchL: Partial<Debt> & { include?: boolean }) => setQuickLoans((list) => list.map((l) => (l.id === id ? { ...l, ...patchL } : l)));
+    const setCard = (id: string, patchC: Partial<Account> & { include?: boolean }) => setQuickCards((list) => list.map((c) => (c.id === id ? { ...c, ...patchC } : c)));
+    return (
+      <div class="screen no-nav">
+        <TopBar back title={t('imp.title')} fallback="/settings" />
+        {stage.quick.errors.length > 0 && (
+          <div class="row-flex small" style="align-items:flex-start;padding:11px 12px;border-radius:12px;background:var(--accent-soft);color:var(--accent-text);line-height:1.6">
+            <Icon name="alert" size={16} />
+            <span>{t('imp.warnings', { n: stage.quick.errors.length })}</span>
+          </div>
+        )}
+        {quickLoans.length > 0 && (
+          <Collapse open title={t('imp.loans')} right={<span class="xs faint n">{quickLoans.filter((l) => l.include).length}</span>}>
+            {quickLoans.map((l) => (
+              <div class="row" style={{ opacity: l.include ? 1 : 0.45 }}>
+                <input type="checkbox" checked={l.include} onChange={(e) => setLoan(l.id, { include: (e.target as HTMLInputElement).checked })} style="width:18px;height:18px;flex-shrink:0" />
+                <span class="grow col gap4" style="min-width:0">
+                  <input class="input" style="height:32px;font-size:13px" value={l.name} onInput={(e) => setLoan(l.id, { name: (e.target as HTMLInputElement).value })} />
+                  {l.installmentsTotal && l.installment ? <span class="xs faint">{t('imp.paidOf', { p: Math.max(0, Math.round((l.principal - l.opening) / l.installment)), t: l.installmentsTotal })}</span> : null}
+                </span>
+                <Money v={l.opening} class="bold" />
+              </div>
+            ))}
+          </Collapse>
+        )}
+        {quickCards.length > 0 && (
+          <Collapse open title={t('imp.cards')} right={<span class="xs faint n">{quickCards.filter((c) => c.include).length}</span>}>
+            {quickCards.map((c) => (
+              <div class="row" style={{ opacity: c.include ? 1 : 0.45 }}>
+                <input type="checkbox" checked={c.include} onChange={(e) => setCard(c.id, { include: (e.target as HTMLInputElement).checked })} style="width:18px;height:18px;flex-shrink:0" />
+                <span class="grow col gap4" style="min-width:0">
+                  <input class="input" style="height:32px;font-size:13px" value={c.name} onInput={(e) => setCard(c.id, { name: (e.target as HTMLInputElement).value })} />
+                  <span class="xs faint">{c.last4 ? '•• ' + c.last4 : ''}</span>
+                </span>
+                <Money v={c.opening} class="bold" />
+              </div>
+            ))}
+          </Collapse>
+        )}
+        <button class="btn" onClick={commitQuick}>{t('imp.commit')}</button>
+        <span class="xs faint" style="line-height:1.7;padding:0 4px">{t('imp.commitNote')}</span>
       </div>
     );
   }
