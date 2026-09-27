@@ -1,8 +1,16 @@
 name: Deploy to GitHub Pages
 
+# Builds and publishes the app. Fresh investment prices are fetched into the build
+# every time (see scripts/fetch-prices.mjs), so the schedule below is what keeps prices
+# current — nothing is ever committed back to the repo.
 on:
   push:
     branches: [main, 'claude/**']
+  schedule:
+    # hourly while the US market is open (13:30–21:00 UTC covers both EDT and EST)
+    - cron: '17 13-21 * * 1-5'
+    # once a day for gold, the exchange rate and weekends
+    - cron: '40 5 * * *'
   workflow_dispatch:
 
 permissions:
@@ -23,11 +31,17 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Paths
+        run: |
+          echo "BASE_PATH=/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_ENV"
+          echo "PREV_URL=https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/prices.json" >> "$GITHUB_ENV"
       - run: npm ci
+      - name: Fetch latest prices
+        # a price outage must never block a deploy — the app shows how old prices are
+        continue-on-error: true
+        run: node scripts/fetch-prices.mjs
       - run: npm run typecheck
       - run: npm run build
-        env:
-          BASE_PATH: /${{ github.event.repository.name }}/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

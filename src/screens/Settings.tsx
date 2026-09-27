@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'preact/hooks';
 import { t, setLang, fmtDay } from '../i18n';
-import { useData, update, getData } from '../store/store';
+import { useData, update, getData, flushSave } from '../store/store';
 import type { Lang, Settings as S } from '../store/types';
-import { Icon } from '../components/Icon';
-import { TopBar, Field, NumInput, Switch, Stepper, Sheet, toast, catName, confirmDo } from '../components/ui';
-import { bioEnabled, bioSupported, changePassword, disableBio, enableBio, lock, wipeAll } from '../store/vault';
+import { Icon, Chev } from '../components/Icon';
+import { TopBar, Field, NumInput, Switch, Stepper, Sheet, Seg, toast, catName, confirmDo } from '../components/ui';
+import { Avatar } from '../components/Avatar';
+import { AvatarEditor } from '../components/AvatarEditor';
+import { SWATCH, THEMES, type ThemeMode, type ThemeName } from '../theme';
+import { bioEnabled, bioSupported, changePassword, disableBio, disablePassword, enableBio, enablePassword, noPasswordEnabled, wipeAll } from '../store/vault';
 import { exportBackup, driveBackup, driveFetchLatest, parseBackupFile, restoreBackup, downloadText } from '../sync/backup';
 import { pickFile } from '../components/image';
 import { toCSV, catById } from '../logic/finance';
@@ -76,16 +79,60 @@ function PasswordSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
+function SetPasswordSheet({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [a, setA] = useState('');
+  const [b, setB] = useState('');
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    if (a.length < 6) return toast(t('ob.short'));
+    if (a !== b) return toast(t('ob.mismatch'));
+    setBusy(true);
+    try {
+      await flushSave();
+      await enablePassword(a, getData());
+      toast(t('set.passOn'));
+      onDone();
+    } catch (e) {
+      toast(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Sheet onClose={onClose} title={t('set.passSet')}>
+      <span class="xs muted" style="line-height:1.7">{t('ob.passHint')}</span>
+      <Field label={t('set.newPass')}><input class="input" type="password" autoComplete="new-password" value={a} onInput={(e) => setA((e.target as HTMLInputElement).value)} /></Field>
+      <Field label={t('ob.password2')}><input class="input" type="password" autoComplete="new-password" value={b} onInput={(e) => setB((e.target as HTMLInputElement).value)} /></Field>
+      <button class="btn" disabled={busy} onClick={go}>{busy ? '…' : t('save')}</button>
+    </Sheet>
+  );
+}
+
 export function Settings({ onLock }: { onLock: () => void }) {
   const d = useData();
   const s = d.settings;
   const [bio, setBio] = useState(false);
-  const [sheet, setSheet] = useState<'restore' | 'pass' | null>(null);
+  const [sheet, setSheet] = useState<'restore' | 'pass' | 'setpass' | null>(null);
+  const [noPass, setNoPass] = useState(false);
+  const [editAv, setEditAv] = useState(false);
   const [driveBusy, setDriveBusy] = useState(false);
   const [driveRestore, setDriveRestore] = useState<BackupFile | undefined>();
   useEffect(() => {
     bioEnabled().then(setBio);
+    noPasswordEnabled().then(setNoPass);
   }, []);
+  const togglePass = async (on: boolean) => {
+    if (on) return setSheet('setpass');
+    if (!confirmDo(t('set.noPassConfirm'))) return;
+    try {
+      await flushSave();
+      await disablePassword(getData());
+      setNoPass(true);
+      toast(t('set.passOff'));
+    } catch (e) {
+      toast(String(e));
+    }
+  };
   const set = (p: Partial<S>) => update((x) => ({ ...x, settings: { ...x.settings, ...p } }));
   const setLangAll = (l: Lang) => {
     setLang(l);
@@ -144,6 +191,30 @@ export function Settings({ onLock }: { onLock: () => void }) {
           ))}
         </div>
         <span class="xs faint" style="line-height:1.7">{t('set.langNote')}</span>
+      </div>
+
+      <span class="sec-title">{t('set.look')}</span>
+      <div class="card pad col gap12">
+        <Seg<ThemeMode> value={s.mode ?? 'dark'} onChange={(m) => set({ mode: m })} options={[['light', t('set.light')], ['dark', t('set.dark')], ['auto', t('set.auto')]]} />
+        <div class="grid4">
+          {THEMES.map((th: ThemeName) => {
+            const [accent, dark, light] = SWATCH[th];
+            const on = (s.theme ?? 'ember') === th;
+            return (
+              <button class="col" style={{ alignItems: 'center', gap: '6px', padding: '10px 4px', borderRadius: '13px', border: '1px solid ' + (on ? 'var(--accent)' : 'var(--line)'), background: on ? 'var(--accent-soft)' : 'var(--bg)' }} onClick={() => set({ theme: th })} aria-pressed={on}>
+                <span style={{ width: '38px', height: '38px', borderRadius: '12px', background: `linear-gradient(135deg, ${dark} 50%, ${light} 50%)`, border: '1px solid var(--line-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ width: '16px', height: '16px', borderRadius: '999px', background: accent }} />
+                </span>
+                <span class="xs semi">{t(('theme.' + th) as 'theme.ember')}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button class="row" style="padding:8px 0 0;border-top:1px solid var(--sep)" onClick={() => setEditAv(true)}>
+          <Avatar kind={s.avatar ?? 'ghutra'} size={40} />
+          <span class="grow col gap4"><span class="semi">{t('set.avatar')}</span><span class="xs faint">{t('set.avatarSub')}</span></span>
+          <Chev dir="fwd" size={16} />
+        </button>
       </div>
 
       <span class="sec-title">{t('set.income')}</span>
@@ -209,6 +280,9 @@ export function Settings({ onLock }: { onLock: () => void }) {
           ['/bills', 'repeat', t('qa.bills')],
           ['/trips', 'plane', t('qa.trips')],
           ['/investments', 'up', t('inv.title')],
+          ['/goals', 'target', t('goal.title')],
+          ['/wishlist', 'wish', t('wish.title')],
+          ['/rate-check', 'percent', t('rate.title')],
           ['/txs', 'list', t('qa.txs')]
         ].map(([href, icon, label]) => (
           <a class="row" href={'#' + href}><span class="ib"><Icon name={icon} size={17} /></span><span class="grow semi">{label}</span></a>
@@ -227,8 +301,13 @@ export function Settings({ onLock }: { onLock: () => void }) {
           <span class="grow semi">{t('set.hide')}</span>
           <Switch on={s.hideAmounts} onChange={(v) => set({ hideAmounts: v })} label={t('set.hide')} />
         </div>
-        <button class="row" onClick={() => setSheet('pass')}><span class="ib"><Icon name="key" size={17} /></span><span class="grow semi">{t('set.changePass')}</span></button>
-        <button class="row" onClick={() => { lock(); onLock(); }}><span class="ib"><Icon name="lock" size={17} /></span><span class="grow semi">{t('set.lockNow')}</span></button>
+        <div class="row">
+          <span class="ib"><Icon name="key" size={17} /></span>
+          <span class="grow col gap4"><span class="semi">{t('set.requirePass')}</span><span class="xs faint" style="line-height:1.6">{noPass ? t('set.passOffSub') : t('set.requirePassSub')}</span></span>
+          <Switch on={!noPass} onChange={togglePass} label={t('set.requirePass')} />
+        </div>
+        {!noPass && <button class="row" onClick={() => setSheet('pass')}><span class="ib"><Icon name="edit" size={17} /></span><span class="grow semi">{t('set.changePass')}</span></button>}
+        <button class="row" onClick={onLock}><span class="ib"><Icon name="lock" size={17} /></span><span class="grow semi">{t('set.lockNow')}</span></button>
       </div>
 
       <span class="sec-title">{t('set.data')}</span>
@@ -262,9 +341,12 @@ export function Settings({ onLock }: { onLock: () => void }) {
       }}>{t('set.wipe')}</button>
       <span class="xs faint center">{t('set.installHint')}</span>
       <span class="xs faint center n">v{__APP_VERSION__}</span>
+      <span class="xs faint center" style="opacity:.75">{t('set.builtBy')} <span class="n" dir="ltr">nasser.faiz.alshahrani@gmail.com</span></span>
 
       {sheet === 'restore' && <RestoreSheet initial={driveRestore} onClose={() => setSheet(null)} onDone={() => { setSheet(null); navigate('/', true); }} />}
       {sheet === 'pass' && <PasswordSheet onClose={() => setSheet(null)} />}
+      {editAv && <AvatarEditor value={s.avatar ?? 'ghutra'} name={s.name} onClose={() => setEditAv(false)} onSave={(v) => { set({ avatar: v }); setEditAv(false); }} />}
+      {sheet === 'setpass' && <SetPasswordSheet onClose={() => setSheet(null)} onDone={() => { setSheet(null); setNoPass(false); }} />}
     </div>
   );
 }

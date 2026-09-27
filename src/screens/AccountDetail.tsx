@@ -11,6 +11,7 @@ import { balance, cardPayoff, cardStatement, simulate } from '../logic/finance';
 import { navigate } from '../router';
 import { openTx } from '../sheets';
 import { verifyUser } from '../store/vault';
+import { RateVerdict } from '../components/RateCheck';
 
 const SECRET_FIELDS: [keyof CardSecrets, 'acc.holder' | 'acc.number' | 'acc.expiry' | 'acc.cvv' | 'acc.iban' | 'acc.accNumber' | 'note'][] = [
   ['holder', 'acc.holder'],
@@ -74,7 +75,7 @@ export function AccountDetail({ id }: { id: string }) {
   const d = useData();
   const acc = d.accounts.find((a) => a.id === id);
   const [pick, setPick] = useState<'min' | 'plan' | 'full'>('plan');
-  if (!acc) return <div class="screen"><TopBar back title="" /><Empty /></div>;
+  if (!acc) return <div class="screen no-nav"><TopBar back title="" fallback="/wallet" /><Empty /></div>;
   const bal = balance(d, acc);
   const txs = d.txs.filter((x) => x.accountId === id || x.toAccountId === id).sort((a, b) => (b.date + (b.time ?? '')).localeCompare(a.date + (a.time ?? ''))).slice(0, 30);
   const credit = acc.kind === 'credit' && acc.credit;
@@ -106,7 +107,7 @@ export function AccountDetail({ id }: { id: string }) {
         <>
           <div class="grid3">
             <div class="tile"><span class="xs muted">{t('acc.statement')}</span><Money v={st.statementBalance} class="bold" /></div>
-            <div class="tile" style="border-color:rgba(221,98,32,.35);background:rgba(221,98,32,.07)"><span class="xs" style="color:var(--accent-text)">{t('acc.min')}</span><Money v={st.minimum} class="bold" /></div>
+            <div class="tile" style="border-color:var(--accent-line);background:var(--accent-soft)"><span class="xs" style="color:var(--accent-text)">{t('acc.min')}</span><Money v={st.minimum} class="bold" /></div>
             <div class="tile"><span class="xs muted">{t('acc.due')}</span><span class="semi" style="font-size:13px">{fmtDay(st.dueDate)}</span></div>
           </div>
           <div class="card pad row-flex" style="gap:14px">
@@ -120,8 +121,8 @@ export function AccountDetail({ id }: { id: string }) {
             <div class="card pad col gap10">
               <span class="semi">{t('acc.howPay')}</span>
               {options.map((o) => (
-                <button class="row-flex" style={{ gap: '12px', padding: '11px 13px', borderRadius: '13px', border: '1px solid ' + (pick === o.key ? 'var(--accent)' : 'var(--line)'), background: pick === o.key ? 'rgba(221,98,32,.07)' : 'var(--bg)', textAlign: 'start' }} onClick={() => setPick(o.key)}>
-                  <span style={{ width: '18px', height: '18px', borderRadius: '999px', border: '2px solid ' + (pick === o.key ? 'var(--accent)' : '#5A4A3F'), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button class="row-flex" style={{ gap: '12px', padding: '11px 13px', borderRadius: '13px', border: '1px solid ' + (pick === o.key ? 'var(--accent)' : 'var(--line)'), background: pick === o.key ? 'var(--accent-soft)' : 'var(--bg)', textAlign: 'start' }} onClick={() => setPick(o.key)}>
+                  <span style={{ width: '18px', height: '18px', borderRadius: '999px', border: '2px solid ' + (pick === o.key ? 'var(--accent)' : 'var(--chart-cross)'), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {pick === o.key && <span style="width:8px;height:8px;border-radius:999px;background:var(--accent)" />}
                   </span>
                   <span class="grow col gap4">
@@ -137,13 +138,19 @@ export function AccountDetail({ id }: { id: string }) {
                   <div class="row-flex">
                     <span class="xs muted" style="width:84px;flex-shrink:0">{o.label}</span>
                     <div class="grow" style="height:14px;display:flex">
-                      <div style={{ width: (Number.isFinite(o.interest) ? (o.interest / maxInterest) * 100 : 100) + '%', minWidth: '3px', borderRadius: '4px', background: pick === o.key ? '#DD6220' : '#8C7564' }} />
+                      <div style={{ width: (Number.isFinite(o.interest) ? (o.interest / maxInterest) * 100 : 100) + '%', minWidth: '3px', borderRadius: '4px', background: pick === o.key ? 'var(--accent)' : 'var(--sand)' }} />
                     </div>
                     <span class="n xs bold" style="width:52px;text-align:end">{Number.isFinite(o.interest) ? fmt(o.interest) : '∞'}</span>
                   </div>
                 ))}
               </div>
               <button class="btn" onClick={() => openTx({ type: 'transfer', toAccountId: acc.id, accountId: d.settings.salaryAccountId, amount: pick === 'min' ? st.minimum : pick === 'plan' ? Math.round(planPay) : bal })}>{t('acc.recordPay')}</button>
+            </div>
+          )}
+          {p.monthlyRate > 0 && (
+            <div class="card pad col gap10">
+              <span class="h2">{t('rate.qCard')}</span>
+              <RateVerdict kind="card" apr={p.monthlyRate * 12} balance={bal > 0 ? bal : undefined} payment={bal > 0 ? Math.max(planPay, st.minimum) : undefined} />
             </div>
           )}
         </>

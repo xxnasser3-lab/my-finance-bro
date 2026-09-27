@@ -19,7 +19,8 @@ export function TxSheet({ preset, onClose }: { preset?: Partial<Tx>; onClose: ()
   const [catId, setCatId] = useState<string | undefined>(base.categoryId);
   const [accountId, setAccountId] = useState<string | undefined>(base.accountId ?? (type === 'income' ? d.settings.salaryAccountId : lastAcc) ?? liquid[0]?.id);
   const [toAccountId, setTo] = useState<string | undefined>(base.toAccountId);
-  const [tripId, setTrip] = useState<string | undefined>(base.tripId ?? d.trips.find((tr) => today() >= tr.start && today() <= (tr.end ?? tr.start))?.id);
+  // new expenses during a trip default to it; an edited transaction keeps what it had
+  const [tripId, setTrip] = useState<string | undefined>(editing ? editing.tripId : base.tripId ?? d.trips.find((tr) => today() >= tr.start && today() <= (tr.end ?? tr.start))?.id);
   const [debtId, setDebt] = useState<string | undefined>(base.debtId);
   const [date, setDate] = useState(base.date ?? today());
   const [note, setNote] = useState(base.note ?? '');
@@ -64,6 +65,8 @@ export function TxSheet({ preset, onClose }: { preset?: Partial<Tx>; onClose: ()
     if (amt <= 0) return toast(t('amount'));
     if (type === 'transfer' && (!accountId || !toAccountId || accountId === toAccountId)) return toast(t('tx.to'));
     const tx: Tx = {
+      // keep fields this sheet doesn't show (investment buy/sell, auto-logged, …)
+      ...editing,
       id: editing?.id ?? uid(),
       type,
       amount: amt,

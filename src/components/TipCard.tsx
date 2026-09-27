@@ -5,10 +5,10 @@ import { fmt } from './ui';
 import { Icon } from './Icon';
 
 const LOOK: Record<Tip['level'], { color: string; bg: string; border: string; icon: string }> = {
-  danger: { color: '#F2878A', bg: 'rgba(229,72,77,.08)', border: 'rgba(229,72,77,.3)', icon: 'alert' },
-  warn: { color: '#F08A4B', bg: 'rgba(221,98,32,.07)', border: 'rgba(221,98,32,.25)', icon: 'alert' },
-  good: { color: '#8FD6B2', bg: 'rgba(108,196,154,.08)', border: 'rgba(108,196,154,.25)', icon: 'check' },
-  info: { color: '#CDBEB0', bg: 'var(--surface)', border: 'var(--line)', icon: 'star' }
+  danger: { color: 'var(--danger)', bg: 'var(--danger-soft)', border: 'var(--danger-line)', icon: 'alert' },
+  warn: { color: 'var(--accent-text)', bg: 'var(--accent-soft)', border: 'var(--accent-line)', icon: 'alert' },
+  good: { color: 'var(--green-text)', bg: 'var(--green-soft)', border: 'var(--green-line)', icon: 'check' },
+  info: { color: 'var(--text-2)', bg: 'var(--surface)', border: 'var(--line)', icon: 'star' }
 };
 
 export function tipText(tip: Tip): string {
@@ -25,7 +25,7 @@ export function tipText(tip: Tip): string {
 export function TipCard({ tip }: { tip: Tip }) {
   const l = LOOK[tip.level];
   return (
-    <a href={'#' + tip.href} class="row-flex small" style={{ alignItems: 'flex-start', padding: '12px 13px', borderRadius: '13px', lineHeight: 1.7, color: '#e9d8c4', background: l.bg, border: '1px solid ' + l.border }}>
+    <a href={'#' + tip.href} class="row-flex small" style={{ alignItems: 'flex-start', padding: '12px 13px', borderRadius: '13px', lineHeight: 1.7, color: 'var(--text-2)', background: l.bg, border: '1px solid ' + l.border }}>
       <span style={{ color: l.color, marginTop: '3px' }}><Icon name={tip.kind === 'dailyCost' ? 'repeat' : tip.kind === 'cardDue' ? 'card' : tip.kind === 'extraIncome' ? 'up' : l.icon} size={17} /></span>
       <span class="grow">{tipText(tip)}</span>
     </a>

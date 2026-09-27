@@ -8,6 +8,7 @@ import { debtPayment, debtRemaining, installmentsPaid, nextInstallmentDate, simu
 import { navigate } from '../router';
 import { openTx } from '../sheets';
 import { freeLabel, PROVIDER_COLORS, providerShort } from './Debts';
+import { RateCalc, RateVerdict } from '../components/RateCheck';
 
 export function DebtDetail({ id }: { id: string }) {
   const d = useData();
@@ -54,7 +55,7 @@ export function DebtDetail({ id }: { id: string }) {
         </div>
       ) : (
         <div class="row-flex" style="gap:12px">
-          <span class="ib" style={{ width: '48px', height: '48px', background: debt.kind === 'bnpl' ? PROVIDER_COLORS[debt.provider ?? 'other'] : undefined, fontSize: '12px' }}>
+          <span class="ib" style={{ width: '48px', height: '48px', background: debt.kind === 'bnpl' ? PROVIDER_COLORS[debt.provider ?? 'other'] : undefined, color: debt.kind === 'bnpl' ? '#F5EEE6' : undefined, fontSize: '12px' }}>
             {debt.kind === 'bnpl' ? providerShort(debt.provider ?? 'other') : <Icon name="bank" size={22} />}
           </span>
           <span class="col gap4"><span class="semi">{t(('kindD.' + debt.kind) as 'kindD.loan')}</span>{debt.note && <span class="xs faint">{debt.note}</span>}</span>
@@ -69,7 +70,7 @@ export function DebtDetail({ id }: { id: string }) {
         <Bar pct={pct} />
         {debt.installmentsTotal ? (
           <div class="row-flex" style="gap:3px">
-            {Array.from({ length: debt.installmentsTotal }, (_, i) => <span style={{ flex: '1 1 0', height: '6px', borderRadius: '2px', background: i < paid ? '#CDBEB0' : '#3A2E25' }} />)}
+            {Array.from({ length: debt.installmentsTotal }, (_, i) => <span style={{ flex: '1 1 0', height: '6px', borderRadius: '2px', background: i < paid ? 'var(--text-2)' : 'var(--line-2)' }} />)}
           </div>
         ) : null}
         <div class="grid2">
@@ -84,6 +85,28 @@ export function DebtDetail({ id }: { id: string }) {
         </div>
         {!owed && payoffIdx !== undefined && next && <span class="xs muted">{t('debt.inPlan')}: {t('debt.ends', { d: freeLabel(payoffIdx) })}</span>}
       </div>
+
+      {!owed && rem > 0 && (debt.kind !== 'person' || (debt.annualRate ?? 0) > 0) && (
+        <div class="card pad col gap12">
+          <span class="h2">{t('rate.q')}</span>
+          {(debt.annualRate ?? 0) > 0 ? (
+            <>
+              <RateVerdict kind={debt.kind === 'bnpl' ? 'bnpl' : 'personal'} apr={debt.annualRate!} balance={rem} payment={(debt.installment ?? debt.monthly ?? 0) * (debt.frequency === 'biweekly' ? 2 : 1)} fixedSchedule={!!debt.installmentsTotal} />
+              <details>
+                <summary class="small muted">{t('rate.calc')}</summary>
+                <RateCalc initial={{ payment: debt.installment, n: debt.installmentsTotal }} onApr={(apr) => update((x) => ({ ...x, debts: x.debts.map((y) => (y.id === id ? { ...y, annualRate: apr } : y)) }))} />
+              </details>
+            </>
+          ) : debt.kind === 'bnpl' ? (
+            <span class="small pos" style="line-height:1.7">{t('rate.bnplFree')}</span>
+          ) : (
+            <>
+              <span class="small text2" style="line-height:1.7">{t('rate.noRate')}</span>
+              <RateCalc initial={{ payment: debt.installment, n: debt.installmentsTotal }} onApr={(apr) => update((x) => ({ ...x, debts: x.debts.map((y) => (y.id === id ? { ...y, annualRate: apr } : y)) }))} />
+            </>
+          )}
+        </div>
+      )}
 
       <div class={actions.length > 1 ? 'grid2' : 'col'}>
         {actions.map((a) => <button class={'btn' + (a.primary ? '' : ' ghost')} onClick={a.fn}>{a.label}</button>)}

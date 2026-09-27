@@ -1,13 +1,18 @@
 {
-  "_comment": "US tickers the price robot fetches. Add your own tickers anywhere in this list — the robot fetches all of them every run, so this file alone never reveals which ones you actually own. For extra cover, add a few tickers you don't hold alongside real ones.",
-  "symbols": [
-    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "BRK-B", "AVGO",
-    "JPM", "V", "MA", "UNH", "HD", "PG", "COST", "MRK", "ABBV", "XOM",
-    "CVX", "WMT", "KO", "PEP", "BAC", "ADBE", "CRM", "NFLX", "AMD", "INTC",
-    "ORCL", "CSCO", "ABT", "TMO", "ACN", "MCD", "DIS", "LIN", "DHR", "WFC",
-    "TXN", "NKE", "PM", "NEE", "UNP", "RTX", "HON", "UPS", "QCOM", "IBM",
-    "BA", "CAT", "GS", "SBUX", "LOW", "AMGN", "SPGI", "INTU", "DE", "BLK",
-    "GE", "PLTR", "SHOP", "PYPL", "UBER", "SQ", "COIN", "SOFI", "SNOW", "ARM",
-    "VOO", "SPY", "QQQ", "VTI", "SCHD"
-  ]
+  "_comment": "US tickers the price robot fetches, grouped by sector (the app compares a stock with its sector peers). Add your own tickers to any group — the robot fetches all of them on every run, so this public file never reveals which ones you actually own.",
+  "sectors": {
+    "tech": ["AAPL", "MSFT", "NVDA", "AVGO", "ORCL", "ADBE", "CRM", "AMD", "INTC", "CSCO", "ACN", "TXN", "QCOM", "IBM", "INTU", "NOW", "MU", "AMAT", "LRCX", "KLAC", "ADI", "PANW", "CRWD", "ANET", "DELL", "TSM", "ASML", "MRVL", "PLTR", "SNOW", "ARM", "NET", "DDOG", "ZS", "APP", "SMCI", "MSTR"],
+    "comm": ["GOOGL", "GOOG", "META", "NFLX", "DIS", "TMUS", "VZ", "T", "SPOT", "RDDT"],
+    "consumer": ["AMZN", "TSLA", "HD", "MCD", "NKE", "SBUX", "LOW", "BKNG", "ABNB", "CMG", "TJX", "UBER", "SHOP", "RIVN", "LCID", "BABA", "NIO", "PDD"],
+    "staples": ["WMT", "COST", "PG", "KO", "PEP", "PM", "MO", "CL", "MDLZ"],
+    "health": ["LLY", "UNH", "JNJ", "MRK", "ABBV", "ABT", "TMO", "DHR", "AMGN", "PFE", "ISRG", "NVO", "MRNA", "CVS", "HIMS"],
+    "fin": ["BRK-B", "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "C", "AXP", "SCHW", "BLK", "SPGI", "PYPL", "XYZ", "COIN", "SOFI", "HOOD", "AFRM"],
+    "energy": ["XOM", "CVX", "COP", "OXY", "SLB"],
+    "industrial": ["GE", "CAT", "DE", "HON", "UNP", "RTX", "LMT", "NOC", "BA", "UPS", "FDX"],
+    "materials": ["LIN", "NEM", "FCX"],
+    "utilities": ["NEE", "DUK", "SO"],
+    "realestate": ["O", "AMT", "PLD"],
+    "etf": ["SPY", "VOO", "IVV", "VTI", "QQQ", "DIA", "IWM", "VT", "VXUS", "SCHD", "VGT", "XLK", "XLF", "XLE", "XLV", "SMH", "SOXX", "ARKK", "JEPI", "JEPQ", "GLD", "SLV", "TLT", "BND"],
+    "shariah": ["SPUS", "HLAL", "SPSK", "UMMA", "SPRE", "SPTE", "SPWO"]
+  }
 }

@@ -4,6 +4,7 @@ import { getData, uid, update, upsert, removeById } from '../store/store';
 import type { BnplProvider, Debt, DebtKind } from '../store/types';
 import { Icon } from '../components/Icon';
 import { Avatar, AVATAR_KINDS } from '../components/Avatar';
+import { AvatarEditor } from '../components/AvatarEditor';
 import { TopBar, Seg, Field, NumInput, toast, confirmDo } from '../components/ui';
 import { readImage, pickFile } from '../components/image';
 import { goBack, navigate } from '../router';
@@ -32,6 +33,7 @@ export function DebtForm({ id, preset }: { id?: string; preset?: string }) {
   );
   const current = existing ? debtRemaining(d, existing) : x.opening;
   const [rem, setRem] = useState<number>(current);
+  const [editAv, setEditAv] = useState(false);
   const set = (p: Partial<Debt>) => setX((v) => ({ ...v, ...p }));
   const setPerson = (p: Partial<NonNullable<Debt['person']>>) => setX((v) => ({ ...v, person: { avatar: 'ghutra', direction: 'owe', ...v.person, ...p } }));
 
@@ -88,6 +90,14 @@ export function DebtForm({ id, preset }: { id?: string; preset?: string }) {
           </div>
           <span class="xs semi muted">{t('debt.avatar')}</span>
           <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;justify-items:center">
+            <button
+              type="button"
+              aria-label={t('av.title')}
+              onClick={() => setEditAv(true)}
+              style={{ width: '50px', height: '50px', borderRadius: '999px', background: 'var(--surface-2)', color: 'var(--accent-text)', border: '2px solid ' + (x.person?.avatar?.startsWith('c:') ? 'var(--accent)' : 'var(--line-2)'), display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+            >
+              {x.person?.avatar?.startsWith('c:') ? <Avatar kind={x.person.avatar} size={42} /> : <Icon name="palette" size={20} />}
+            </button>
             {AVATAR_KINDS.map((k) => (
               <button
                 type="button"
@@ -145,7 +155,7 @@ export function DebtForm({ id, preset }: { id?: string; preset?: string }) {
             ) : (
               <div class="grid2">
                 <Field label={t('debt.dueDay')}><NumInput value={x.dueDay} onInput={(v) => set({ dueDay: v ? Math.min(31, Math.max(1, Math.round(v))) : undefined })} /></Field>
-                <Field label={t('debt.rate')}><NumInput value={x.annualRate} onInput={(v) => set({ annualRate: v || undefined })} placeholder="0" /></Field>
+                <Field label={t('debt.rate')} hint={t('debt.rateHint')}><NumInput value={x.annualRate} onInput={(v) => set({ annualRate: v || undefined })} placeholder="0" /></Field>
               </div>
             )}
             {x.kind === 'bnpl' && x.startDate && existing === undefined && <span class="xs faint">{t('tx.bnplNote')}</span>}
@@ -168,6 +178,7 @@ export function DebtForm({ id, preset }: { id?: string; preset?: string }) {
         {existing && <button class="btn danger" onClick={del} aria-label={t('delete')}><Icon name="trash" size={18} /></button>}
         <button class="btn grow" onClick={save}>{t('save')}</button>
       </div>
+      {editAv && <AvatarEditor value={x.person?.avatar} name={x.name} onClose={() => setEditAv(false)} onSave={(v) => { setPerson({ avatar: v, photo: undefined }); setEditAv(false); }} />}
     </div>
   );
 }

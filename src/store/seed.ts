@@ -77,7 +77,9 @@ export function emptyData(settings: Partial<Settings>): AppData {
     commitments: [],
     debts: [],
     trips: [],
-    investments: []
+    investments: [],
+    goals: [],
+    wishlist: []
   };
 }
 
@@ -85,8 +87,13 @@ export function emptyData(settings: Partial<Settings>): AppData {
 export function migrate(d: AppData): AppData {
   const have = new Set(d.categories.map((c) => c.id));
   const missing = defaultCategories().filter((c) => !have.has(c.id));
-  const next = missing.length ? { ...d, categories: [...d.categories, ...missing] } : d;
-  return next.investments ? next : { ...next, investments: [] };
+  return {
+    ...d,
+    categories: missing.length ? [...d.categories, ...missing] : d.categories,
+    investments: d.investments ?? [],
+    goals: d.goals ?? [],
+    wishlist: d.wishlist ?? []
+  };
 }
 
 export const catKeysAr: Record<string, string> = {

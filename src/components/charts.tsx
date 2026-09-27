@@ -1,6 +1,9 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { fmt } from './ui';
+import { getData, hasData } from '../store/store';
+
+const hidden = () => hasData() && getData().settings.hideAmounts;
 
 function useWidth<T extends HTMLElement>(): [preact.RefObject<T>, number] {
   const ref = useRef<T>(null);
@@ -19,6 +22,7 @@ export function short(v: number): string {
   const sign = v < 0 ? '−' : '';
   if (a >= 1000000) return sign + (a / 1000000).toFixed(a >= 10000000 ? 0 : 1).replace(/\.0$/, '') + 'm';
   if (a >= 1000) return sign + (a / 1000).toFixed(a >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'k';
+  if (a < 100 && Math.abs(a - Math.round(a)) > 1e-6) return sign + a.toFixed(a < 10 ? 2 : 1).replace(/\.?0+$/, '');
   return sign + String(Math.round(a));
 }
 
@@ -42,7 +46,7 @@ export interface Series {
 
 /** Multi-series line chart with a crosshair tooltip. Time always runs left→right. */
 export function LineChart({
-  series, count, height = 150, xLabels, tip, yMax, initial, badge
+  series, count, height = 150, xLabels, tip, yMax, initial, badge, fit
 }: {
   series: Series[];
   count: number;
@@ -52,24 +56,27 @@ export function LineChart({
   yMax?: number;
   initial?: number;
   badge?: ComponentChildren;
+  /** scale to the data's own range instead of starting at zero (prices) */
+  fit?: boolean;
 }) {
   const [ref, w] = useWidth<HTMLDivElement>();
   const [hi, setHi] = useState<number | null>(initial ?? null);
-  const axisW = 30;
+  const axisW = fit ? 40 : 30;
   const pw = w - axisW;
   const all = series.flatMap((s) => s.values.filter((v): v is number => v !== null));
   // Scale covers negatives too (e.g. an overdrawn balance), with 0 as the fill baseline.
-  const rawMin = Math.min(0, ...all);
-  const rawMax = yMax ?? Math.max(1, ...all);
-  const step = niceMax((rawMax - rawMin) / 4);
-  const lo = rawMin < 0 ? Math.floor(rawMin / step) * step : 0;
+  const dataMin = all.length ? Math.min(...all) : 0;
+  const rawMin = fit ? dataMin : Math.min(0, dataMin);
+  const rawMax = yMax ?? (fit ? Math.max(...all, dataMin + 1e-6) : Math.max(1, ...all));
+  const step = niceMax((rawMax - rawMin) / 4 || Math.abs(rawMax) / 10 || 1);
+  const lo = fit || rawMin < 0 ? Math.floor(rawMin / step) * step : 0;
   const max = Math.max(lo + step, Math.ceil(rawMax / step) * step);
   const span = max - lo;
   const ticks: number[] = [];
   for (let v = lo; v <= max + step / 1000; v += step) ticks.push(v);
   const x = (i: number) => (count <= 1 ? 0 : (i / (count - 1)) * pw);
   const y = (v: number) => height - ((Math.max(lo, Math.min(max, v)) - lo) / span) * height;
-  const base = y(0);
+  const base = fit ? height : y(0);
   const path = (vals: (number | null)[]) => {
     let d = '';
     let pen = false;
@@ -93,29 +100,29 @@ export function LineChart({
     <div class="chart" ref={ref} style={{ height: height + 26 + 'px' }}>
       <svg width={pw} height={height} style="position:absolute;left:0;top:0;overflow:visible">
         {ticks.map((v) => (
-          <line x1="0" x2={pw} y1={y(v)} y2={y(v)} stroke="#1F1814" />
+          <line x1="0" x2={pw} y1={y(v)} y2={y(v)} style="stroke:var(--chart-grid)" />
         ))}
-        <line x1="0" x2={pw} y1={base} y2={base} stroke="#3A2E25" />
-        {hi !== null && <line x1={x(hi)} x2={x(hi)} y1="0" y2={height} stroke="#5A4A3F" stroke-dasharray="3 3" />}
+        {!fit && <line x1="0" x2={pw} y1={base} y2={base} style="stroke:var(--chart-base)" />}
+        {hi !== null && <line x1={x(hi)} x2={x(hi)} y1="0" y2={height} style="stroke:var(--chart-cross)" stroke-dasharray="3 3" />}
         {series.map((s) => {
           if (!s.fill) return null;
           const idx = s.values.map((v, i) => (v === null ? -1 : i)).filter((i) => i >= 0);
           if (!idx.length) return null;
-          return <path d={path(s.values) + `L${x(idx[idx.length - 1])} ${base} L${x(idx[0])} ${base} Z`} fill={s.color} opacity="0.15" />;
+          return <path d={path(s.values) + `L${x(idx[idx.length - 1])} ${base} L${x(idx[0])} ${base} Z`} style={{ fill: s.color }} opacity="0.15" />;
         })}
         {series.map((s) => (
-          <path d={path(s.values)} fill="none" stroke={s.color} stroke-width={s.width ?? 2} stroke-dasharray={s.dash} stroke-linejoin="round" stroke-linecap="round" opacity={s.opacity ?? 1} />
+          <path d={path(s.values)} fill="none" style={{ stroke: s.color }} stroke-width={s.width ?? 2} stroke-dasharray={s.dash} stroke-linejoin="round" stroke-linecap="round" opacity={s.opacity ?? 1} />
         ))}
         {hi !== null &&
           series.map((s) =>
             s.marker !== false && s.values[hi] !== null && s.values[hi] !== undefined ? (
-              <circle cx={x(hi)} cy={y(s.values[hi] as number)} r="4.5" fill={s.color} stroke="#16110E" stroke-width="2" />
+              <circle cx={x(hi)} cy={y(s.values[hi] as number)} r="4.5" style={{ fill: s.color, stroke: 'var(--surface)' }} stroke-width="2" />
             ) : null
           )}
       </svg>
       <div style={{ position: 'absolute', left: 0, top: 0, width: pw + 'px', height: height + 'px' }} onPointerMove={onMove} onPointerDown={onMove} />
       {ticks.map((v) => (
-        <span class="axis n" style={{ position: 'absolute', right: 0, top: y(v) - 7 + 'px', lineHeight: '14px' }}>{short(v)}</span>
+        <span class="axis n" style={{ position: 'absolute', right: 0, top: y(v) - 7 + 'px', lineHeight: '14px' }}>{!fit && hidden() ? '' : fit && !(Math.abs(v) >= 10000 && step >= 100) ? fmt(v, step >= 1 ? 0 : step >= 0.1 ? 1 : 2) : short(v)}</span>
       ))}
       <div class="axis" style={{ position: 'absolute', left: 0, top: height + 8 + 'px', width: pw + 'px', display: 'flex', justifyContent: 'space-between', overflow: 'hidden', whiteSpace: 'nowrap', gap: '4px' }}>
         {xLabels.map((l) => (
@@ -159,8 +166,8 @@ export function BarChart({
   const h = (v: number) => (v / max) * height + 'px';
   return (
     <div class="chart" style={{ height: height + 24 + 'px' }}>
-      <div style={{ position: 'absolute', left: 0, right: '30px', top: 0, height: height + 'px', borderBottom: '1px solid #2E241D', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around' }}>
-        {refLine !== undefined && <div style={{ position: 'absolute', left: 0, right: 0, bottom: h(refLine), borderTop: '1px dashed #5A4A3F' }} />}
+      <div style={{ position: 'absolute', left: 0, right: '30px', top: 0, height: height + 'px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around' }}>
+        {refLine !== undefined && <div style={{ position: 'absolute', left: 0, right: 0, bottom: h(refLine), borderTop: '1px dashed var(--chart-cross)' }} />}
         {data.map((d, i) => {
           const on = hi === i;
           return (
@@ -173,10 +180,10 @@ export function BarChart({
               }}
             >
               {showValue && on && !paired && (
-                <span class="n" style={{ position: 'absolute', bottom: `calc(${h(d.v)} + 4px)`, fontSize: '11px', fontWeight: 700 }}>{fmt(d.v)}</span>
+                <span class="n" style={{ position: 'absolute', bottom: `calc(${h(d.v)} + 4px)`, fontSize: '11px', fontWeight: 700 }}>{hidden() ? '••' : fmt(d.v)}</span>
               )}
-              {d.v2 !== undefined && <div style={{ width: '13px', height: h(d.v2), borderRadius: '4px 4px 0 0', background: d.color2 ?? '#5B8FD0' }} />}
-              <div style={{ width: paired ? '13px' : 'min(26px, 60%)', height: h(d.v), minHeight: d.v > 0 ? '2px' : 0, borderRadius: '4px 4px 0 0', background: d.color ?? (on && !paired ? '#DD6220' : '#8C7564') }} />
+              {d.v2 !== undefined && <div style={{ width: '13px', height: h(d.v2), borderRadius: '4px 4px 0 0', background: d.color2 ?? 'var(--blue)' }} />}
+              <div style={{ width: paired ? '13px' : 'min(26px, 60%)', height: h(d.v), minHeight: d.v > 0 ? '2px' : 0, borderRadius: '4px 4px 0 0', background: d.color ?? (on && !paired ? 'var(--accent)' : 'var(--sand)') }} />
             </div>
           );
         })}
@@ -188,7 +195,7 @@ export function BarChart({
       </div>
       <div class="axis" style={{ position: 'absolute', left: 0, right: '30px', top: height + 7 + 'px', display: 'flex', justifyContent: 'space-around' }}>
         {data.map((d, i) => (
-          <span style={{ flex: '1 1 0', textAlign: 'center', color: hi === i ? '#F5EEE6' : undefined, fontWeight: hi === i ? 700 : 400 }}>{d.label}</span>
+          <span style={{ flex: '1 1 0', textAlign: 'center', color: hi === i ? 'var(--text)' : undefined, fontWeight: hi === i ? 700 : 400 }}>{d.label}</span>
         ))}
       </div>
       {tip && hi !== null && (
@@ -209,11 +216,11 @@ export function HBars({ rows, max, onRow }: { rows: { label: ComponentChildren; 
           <div class="between small">
             <span class="ellipsis">{r.label}</span>
             <span style="white-space:nowrap">
-              <span class="n bold">{fmt(r.v)}</span> {r.sub && <span class="n xs faint">{r.sub}</span>}
+              <span class="n bold">{hidden() ? '••••' : fmt(r.v)}</span> {r.sub && <span class="n xs faint">{r.sub}</span>}
             </span>
           </div>
           <div class="bar">
-            <div style={{ width: (r.v / m) * 100 + '%', background: r.color ?? (i === 0 ? '#DD6220' : '#8C7564') }} />
+            <div style={{ width: (r.v / m) * 100 + '%', background: r.color ?? (i === 0 ? 'var(--accent)' : 'var(--sand)') }} />
           </div>
         </div>
       ))}
@@ -229,8 +236,8 @@ export function Gauge({ pct, size = 112 }: { pct: number; size?: number }) {
   return (
     <div style={{ position: 'relative', width: size + 'px', height: h + 'px', flexShrink: 0 }}>
       <svg width={size} height={h} viewBox={`0 0 ${size} ${h}`}>
-        <path d={`M8 ${size / 2} A${r} ${r} 0 0 1 ${size - 8} ${size / 2}`} fill="none" stroke="#2A211B" stroke-width="9" stroke-linecap="round" />
-        <path d={`M8 ${size / 2} A${r} ${r} 0 0 1 ${size - 8} ${size / 2}`} fill="none" stroke={p > 0.7 ? '#E5484D' : '#DD6220'} stroke-width="9" stroke-linecap="round" stroke-dasharray={`${(len * p).toFixed(1)} ${len.toFixed(1)}`} />
+        <path d={`M8 ${size / 2} A${r} ${r} 0 0 1 ${size - 8} ${size / 2}`} fill="none" style="stroke:var(--surface-3)" stroke-width="9" stroke-linecap="round" />
+        <path d={`M8 ${size / 2} A${r} ${r} 0 0 1 ${size - 8} ${size / 2}`} fill="none" style={{ stroke: p > 0.7 ? 'var(--danger-strong)' : 'var(--accent)' }} stroke-width="9" stroke-linecap="round" stroke-dasharray={`${(len * p).toFixed(1)} ${len.toFixed(1)}`} />
       </svg>
       <span class="n bold" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, textAlign: 'center', fontSize: '18px' }}>{Math.round(p * 100)}%</span>
     </div>

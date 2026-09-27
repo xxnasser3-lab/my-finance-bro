@@ -38,7 +38,7 @@ export function Reports() {
       ? Array.from({ length: 6 }, (_, i) => {
           const rr = range('m', offset - 5 + i) as ReturnType<typeof range> & { m0: number };
           const s = periodStats(d, rr.start, rr.end);
-          return { label: monthName(rr.m0, true), v: s.expense, v2: s.income, color: '#DD6220', color2: '#5B8FD0', full: rr.label };
+          return { label: monthName(rr.m0, true), v: s.expense, v2: s.income, color: 'var(--accent)', color2: 'var(--blue)', full: rr.label };
         })
       : st.daily.map((v, i) => ({ label: dayName(i, true), v, full: fmtDay(addDays(r.start, i)) }));
 
@@ -91,8 +91,8 @@ export function Reports() {
         <span class="h2">{mode === 'm' ? t('rep.chartM') : t('rep.chartW')}</span>
         {mode === 'm' && (
           <div class="legend">
-            <span><i class="dot" style="background:#5B8FD0" />{t('rep.income')}</span>
-            <span><i class="dot" style="background:#DD6220" />{t('rep.expense')}</span>
+            <span><i class="dot" style="background:var(--blue)" />{t('rep.income')}</span>
+            <span><i class="dot" style="background:var(--accent)" />{t('rep.expense')}</span>
           </div>
         )}
         <BarChart
@@ -116,7 +116,7 @@ export function Reports() {
               {t('rep.showMore', { n: rest.length })}
               <Chev dir="down" size={15} />
             </summary>
-            <HBars rows={rest.map((x) => ({ ...x, color: '#8C7564' }))} max={max} />
+            <HBars rows={rest.map((x) => ({ ...x, color: 'var(--sand)' }))} max={max} />
           </details>
         )}
       </div>
@@ -134,7 +134,7 @@ export function Reports() {
           <span class="sec-title">{t('rep.trips')}</span>
           {trips.map((tr) => (
             <a href={'#/trip/' + tr.id} class="card row-flex" style="padding:14px 16px;gap:12px;color:var(--text)">
-              <span class="ib" style="background:rgba(232,182,76,.14);border-color:transparent;color:var(--gold)"><Icon name="plane" size={18} /></span>
+              <span class="ib" style="background:var(--gold-soft);border-color:transparent;color:var(--gold)"><Icon name="plane" size={18} /></span>
               <span class="grow col gap4"><span class="semi">{tr.name}</span><span class="xs faint">{fmtDay(tr.start)}{tr.end ? ' – ' + fmtDay(tr.end) : ''}</span></span>
               <Money v={tripSpent(d, tr.id)} class="bold" />
             </a>

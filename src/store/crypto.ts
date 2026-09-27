@@ -36,6 +36,11 @@ export async function deriveKey(password: string, salt: Uint8Array, iterations =
   );
 }
 
+/** A random AES key that never leaves this device (used when the app has no password). */
+export async function generateKey(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+
 export interface Sealed {
   iv: string;
   ct: string;

@@ -4,6 +4,7 @@ import { useData, update } from '../store/store';
 import { cashflow, tips } from '../logic/advisor';
 import { TipCard } from '../components/TipCard';
 import { Avatar } from '../components/Avatar';
+import { AvatarEditor } from '../components/AvatarEditor';
 import { Icon, Chev } from '../components/Icon';
 import { Money, fmt, Collapse, Bar } from '../components/ui';
 import { LineChart } from '../components/charts';
@@ -17,6 +18,7 @@ export function Home() {
   const d = useData();
   const s = d.settings;
   const [prices, setPrices] = useState<PricesFile | null>(null);
+  const [editAv, setEditAv] = useState(false);
   useEffect(() => {
     if (d.investments.length) loadPrices().then(setPrices);
   }, [d.investments.length]);
@@ -52,7 +54,7 @@ export function Home() {
   return (
     <div class="screen page-glow">
       <div class="row-flex" style="gap:12px">
-        <Avatar kind="ghutra" size={42} />
+        <button aria-label={t('av.title')} onClick={() => setEditAv(true)} style="padding:0;border:0;background:none;border-radius:999px;display:flex"><Avatar kind={s.avatar ?? 'ghutra'} size={42} /></button>
         <div class="grow col">
           <span class="small muted">{dayName(wd)}، {fmtDay(t0)}</span>
           <span style="font-size:16px;font-weight:600">{s.name ? t('home.hello', { name: s.name }) : t('appName')}</span>
@@ -64,7 +66,7 @@ export function Home() {
       </div>
 
       {backupAge !== null && backupAge >= 7 && (
-        <a href="#/settings" class="card pad row-flex" style="padding:12px 14px;border-color:rgba(221,98,32,.35);background:rgba(221,98,32,.07);color:var(--text)">
+        <a href="#/settings" class="card pad row-flex" style="padding:12px 14px;border-color:var(--accent-line);background:var(--accent-soft);color:var(--text)">
           <Icon name="cloud" size={18} />
           <span class="grow small">{t('home.backup', { n: backupAge })}</span>
           <span class="link-btn">{t('home.backupNow')}</span>
@@ -83,14 +85,14 @@ export function Home() {
         {accs.length > 0 && (
           <div class="grid4" style="gap:6px">
             {accs.slice(0, 4).map((a) => (
-              <div class="col gap6" style="padding:9px 8px;border-radius:11px;background:rgba(255,240,225,.04);border:1px solid #2e241d;min-width:0">
+              <div class="col gap6" style="padding:9px 8px;border-radius:11px;background:var(--tint);border:1px solid var(--line);min-width:0">
                 <span class="row-flex xs text2" style="gap:5px"><span class="dot" style={{ background: SKINS[a.skin % SKINS.length].border }} /><span class="ellipsis">{a.bank ?? a.name}</span></span>
                 <Money v={balance(d, a)} class="bold" />
               </div>
             ))}
           </div>
         )}
-        <div class="between small muted" style="padding-top:12px;border-top:1px solid #2e241d">
+        <div class="between small muted" style="padding-top:12px;border-top:1px solid var(--line)">
           <span>{t('home.netWorth')}</span>
           <Money v={netWorth(d, investmentsValue)} class="text2 semi" />
         </div>
@@ -105,14 +107,14 @@ export function Home() {
           <span style="font-size:30px;line-height:1"><Money v={safeAvail} decimals={2} class={'bold' + (safeAvail <= 0 ? ' neg' : '')} /></span>
           <span class="xs muted">{t('cur')}</span>
         </div>
-        <Bar pct={(bv.spentCycle / Math.max(1, bv.budget)) * 100} color={bv.spentCycle > bv.budget || capped ? '#E5484D' : undefined} />
+        <Bar pct={(bv.spentCycle / Math.max(1, bv.budget)) * 100} color={bv.spentCycle > bv.budget || capped ? 'var(--danger-strong)' : undefined} />
         <div class="grid3">
           <div class="col gap4"><span class="xs muted">{t('home.todayBudget')}</span><Money v={safeToday} class="bold" /></div>
           <div class="col gap4"><span class="xs muted">{t('home.spentToday')}</span><Money v={bv.spentToday} class="bold" /></div>
           <div class="col gap4"><span class="xs muted">{t('home.spentCycle')}</span><Money v={bv.spentCycle} class="bold" /></div>
         </div>
         {!hide && safeAvail > 0 && <span class="xs muted">{t('home.perDay', { v: fmt(safeAvail / Math.max(1, cyc.daysLeft)), n: cyc.daysLeft })}</span>}
-        {!hide && capped && <a href="#/advice" class="xs" style="color:#F2878A;line-height:1.6">{t('home.capped', { v: fmt(bv.available) })}</a>}
+        {!hide && capped && <a href="#/advice" class="xs" style="color:var(--danger);line-height:1.6">{t('home.capped', { v: fmt(bv.available) })}</a>}
       </div>
 
       {autoToday.length > 0 && (
@@ -123,7 +125,7 @@ export function Home() {
         </div>
       )}
 
-      <a href="#/advice" class="card pad col gap10" style={{ color: 'var(--text)', borderColor: cf.result < 0 ? 'rgba(229,72,77,.35)' : undefined }}>
+      <a href="#/advice" class="card pad col gap10" style={{ color: 'var(--text)', borderColor: cf.result < 0 ? 'var(--danger-line)' : undefined }}>
         <div class="between">
           <span class="h2">{t('home.untilPay')}</span>
           <span class="row-flex xs semi" style="gap:4px;color:var(--accent-text)">{t('home.tips')}<Chev dir="fwd" size={14} /></span>
@@ -133,7 +135,7 @@ export function Home() {
             <span class="xs muted">{cf.result < 0 ? t('adv.shortfall') : t('adv.result')}</span>
             <span style="font-size:22px"><Money v={Math.abs(cf.result)} class={'bold ' + (cf.result < 0 ? '' : 'pos')} /></span>
           </div>
-          <span class="xs" style={{ color: cf.result < 0 ? '#F2878A' : 'var(--muted)', textAlign: 'end' }}>{hide ? '' : t('adv.perDay', { v: fmt(Math.abs(cf.result) / Math.max(1, cf.daysLeft)), n: cf.daysLeft })}</span>
+          <span class="xs" style={{ color: cf.result < 0 ? 'var(--danger)' : 'var(--muted)', textAlign: 'end' }}>{hide ? '' : t('adv.perDay', { v: fmt(Math.abs(cf.result) / Math.max(1, cf.daysLeft)), n: cf.daysLeft })}</span>
         </div>
         <div class="grid2 xs muted">
           <span>{t('adv.bills')}: <Money v={cf.obligationsTotal} class="text2 semi" /></span>
@@ -146,10 +148,14 @@ export function Home() {
         {[
           ['/reports', 'reports', t('qa.reports')],
           ['/bills', 'repeat', t('qa.bills')],
+          ['/goals', 'target', t('qa.goals')],
+          ['/wishlist', 'wish', t('qa.wish')],
+          ['/investments', 'up', t('qa.invest')],
+          ['/market', 'trend', t('qa.market')],
           ['/trips', 'plane', t('qa.trips')],
           ['/txs', 'list', t('qa.txs')]
         ].map(([href, icon, label]) => (
-          <a href={'#' + href} class="tile" style="align-items:center;gap:7px;padding:12px 4px;color:#e9d8c4;font-size:11px;font-weight:600">
+          <a href={'#' + href} class="tile" style="align-items:center;gap:7px;padding:12px 4px;color:var(--text-2);font-size:11px;font-weight:600;text-align:center">
             <span style="color:var(--accent-text)"><Icon name={icon} size={22} stroke={1.7} /></span>
             {label}
           </a>
@@ -165,18 +171,18 @@ export function Home() {
           <a href="#/reports" class="xs semi">{t('more')}</a>
         </div>
         <div class="legend">
-          <span><i style="width:14px;height:2px;background:#DD6220;display:inline-block" />{t('home.actual')}</span>
-          <span><i style="width:14px;border-top:2px dashed #7A6A5E;display:inline-block" />{t('home.pace')}</span>
-          <span><i style="width:14px;border-top:2px dotted #DD6220;display:inline-block" />{t('home.forecast')}</span>
+          <span><i style="width:14px;height:2px;background:var(--accent);display:inline-block" />{t('home.actual')}</span>
+          <span><i style="width:14px;border-top:2px dashed var(--chart-cross);display:inline-block" />{t('home.pace')}</span>
+          <span><i style="width:14px;border-top:2px dotted var(--accent);display:inline-block" />{t('home.forecast')}</span>
         </div>
         <LineChart
           count={cyc.days}
           height={140}
           initial={cyc.dayIndex}
           series={[
-            { values: pace, color: '#7A6A5E', width: 1.5, dash: '4 4', marker: false },
-            { values: forecast, color: '#DD6220', width: 2, dash: '1 4', marker: false },
-            { values: actual, color: '#DD6220', width: 2, fill: true }
+            { values: pace, color: 'var(--chart-cross)', width: 1.5, dash: '4 4', marker: false },
+            { values: forecast, color: 'var(--accent)', width: 2, dash: '1 4', marker: false },
+            { values: actual, color: 'var(--accent)', width: 2, fill: true }
           ]}
           xLabels={[fmtDay(cyc.start), fmtDay(addDays(cyc.start, Math.floor(cyc.days / 3))), fmtDay(addDays(cyc.start, Math.floor((2 * cyc.days) / 3))), fmtDay(cyc.end)]}
           tip={(i) => (
@@ -186,7 +192,7 @@ export function Home() {
           )}
         />
         {bv.spentCycle > 0 && cyc.dayIndex >= 2 && !hide && (
-          <div class="row-flex small" style={{ alignItems: 'flex-start', padding: '11px 12px', borderRadius: '12px', lineHeight: 1.7, color: '#e9d8c4', background: over > 0 ? 'rgba(221,98,32,.07)' : 'var(--green-soft)', border: '1px solid ' + (over > 0 ? 'rgba(221,98,32,.22)' : 'rgba(108,196,154,.25)') }}>
+          <div class="row-flex small" style={{ alignItems: 'flex-start', padding: '11px 12px', borderRadius: '12px', lineHeight: 1.7, color: 'var(--text-2)', background: over > 0 ? 'var(--accent-soft)' : 'var(--green-soft)', border: '1px solid ' + (over > 0 ? 'var(--accent-line)' : 'var(--green-line)') }}>
             <span style={{ color: over > 0 ? 'var(--accent-text)' : 'var(--green-text)', marginTop: '3px' }}><Icon name={over > 0 ? 'alert' : 'check'} size={17} /></span>
             <span>{over > 0 ? t('home.over', { v: fmt(bv.projected), o: fmt(over), d: fmt(cutPerDay) }) : t('home.under', { v: fmt(bv.projected), o: fmt(Math.max(0, -over)) })}</span>
           </div>
@@ -229,6 +235,7 @@ export function Home() {
           <Chev dir="fwd" />
         </a>
       )}
+      {editAv && <AvatarEditor value={s.avatar ?? 'ghutra'} name={s.name} onClose={() => setEditAv(false)} onSave={(v) => { update((x) => ({ ...x, settings: { ...x.settings, avatar: v } })); setEditAv(false); }} />}
     </div>
   );
 }

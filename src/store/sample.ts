@@ -40,10 +40,10 @@ export function sampleData(lang: 'ar' | 'en'): AppData {
     { id: 'm-mob', kind: 'fixed', name: ar ? 'الجوال' : 'Mobile', amount: 70, dayOfMonth: 20, cycle: 'monthly', accountId: 'a-rajhi', categoryId: 'c-bills', active: true },
     { id: 'm-gym', kind: 'subscription', name: ar ? 'النادي الرياضي' : 'Gym', amount: 250, dayOfMonth: 1, cycle: 'monthly', accountId: 'a-rajhi', categoryId: 'c-subs', active: true, priority: 'important' },
     { id: 'm-nfx', kind: 'subscription', name: ar ? 'نتفليكس' : 'Netflix', amount: 45, dayOfMonth: 8, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true },
-    { id: 'm-shd', kind: 'subscription', name: ar ? 'شاهد VIP' : 'Shahid VIP', amount: 30, dayOfMonth: 12, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true },
+    { id: 'm-shd', kind: 'subscription', name: ar ? 'شاهد VIP' : 'Shahid VIP', amount: 30, dayOfMonth: 12, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true, priority: 'luxury' },
     { id: 'm-icl', kind: 'subscription', name: ar ? 'آي كلاود' : 'iCloud', amount: 12, dayOfMonth: 18, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true, priority: 'important' },
     { id: 'm-smoke', kind: 'daily', name: ar ? 'دخان' : 'Cigarettes', amount: 23, dayOfMonth: 1, cycle: 'monthly', accountId: 'a-rajhi', categoryId: 'c-daily', active: true, auto: true, priority: 'optional', lastPosted: t },
-    { id: 'm-spt', kind: 'subscription', name: ar ? 'سبوتيفاي' : 'Spotify', amount: 22, dayOfMonth: 22, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true },
+    { id: 'm-spt', kind: 'subscription', name: ar ? 'سبوتيفاي' : 'Spotify', amount: 22, dayOfMonth: 22, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true, priority: 'flexible' },
     { id: 'm-ggl', kind: 'subscription', name: ar ? 'جوجل ون' : 'Google One', amount: 8, dayOfMonth: 25, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true }
   ];
 
@@ -53,7 +53,7 @@ export function sampleData(lang: 'ar' | 'en'): AppData {
     return x >= t ? x : addMonths(x, 1, day);
   };
   d.debts = [
-    { id: 'd-loan', kind: 'loan', name: ar ? 'قرض شخصي' : 'Personal loan', principal: 66600, opening: 40250, installment: 1850, installmentsTotal: 36, dueDay: 27, annualRate: 0, createdAt: now },
+    { id: 'd-loan', kind: 'loan', name: ar ? 'قرض شخصي' : 'Personal loan', principal: 66600, opening: 40250, installment: 1850, installmentsTotal: 36, dueDay: 27, annualRate: 7.2, createdAt: now },
     { id: 'd-tabby', kind: 'bnpl', provider: 'tabby', name: ar ? 'سماعات' : 'Headphones', principal: 1400, opening: 700, installment: 350, installmentsTotal: 4, frequency: 'monthly', startDate: addMonths(nextOn(12), -2, 12), createdAt: now },
     { id: 'd-tamara', kind: 'bnpl', provider: 'tamara', name: ar ? 'إلكترونيات' : 'Electronics', principal: 1600, opening: 1200, installment: 400, installmentsTotal: 4, frequency: 'monthly', startDate: addMonths(nextOn(5), -1, 5), createdAt: now },
     { id: 'd-tas', kind: 'bnpl', provider: 'tasaheel', name: ar ? 'غسالة' : 'Washing machine', principal: 6240, opening: 3120, installment: 520, installmentsTotal: 12, frequency: 'monthly', startDate: addMonths(nextOn(20), -6, 20), createdAt: now },
@@ -68,9 +68,20 @@ export function sampleData(lang: 'ar' | 'en'): AppData {
     { id: 'inv-aapl', kind: 'stock', name: 'Apple Inc.', symbol: 'AAPL', currency: 'USD', quantity: 0, avgCost: 0, accountId: 'a-rajhi', createdAt: now },
     { id: 'inv-gold', kind: 'gold', name: ar ? 'ذهب عيار 21' : 'Gold, 21k', currency: 'SAR', quantity: 0, avgCost: 0, purity: 21, accountId: 'a-rajhi', createdAt: now }
   ];
-  tx({ type: 'expense', amount: 3630, date: addDays(t, -95), categoryId: 'c-other', accountId: 'a-rajhi', investmentId: 'inv-aapl', qty: 20, note: ar ? 'شراء أسهم AAPL' : 'Bought AAPL' });
-  tx({ type: 'expense', amount: 1150, date: addDays(t, -30), categoryId: 'c-other', accountId: 'a-rajhi', investmentId: 'inv-aapl', qty: 5, note: ar ? 'شراء أسهم AAPL' : 'Bought AAPL' });
-  tx({ type: 'expense', amount: 2650, date: addDays(t, -60), categoryId: 'c-other', accountId: 'a-rajhi', investmentId: 'inv-gold', qty: 10, note: ar ? 'شراء ذهب' : 'Bought gold' });
+  tx({ type: 'expense', amount: 22650, date: addDays(t, -95), categoryId: 'c-other', accountId: 'a-rajhi', investmentId: 'inv-aapl', qty: 20, note: ar ? 'شراء أسهم AAPL' : 'Bought AAPL' });
+  tx({ type: 'expense', amount: 6180, date: addDays(t, -30), categoryId: 'c-other', accountId: 'a-rajhi', investmentId: 'inv-aapl', qty: 5, note: ar ? 'شراء أسهم AAPL' : 'Bought AAPL' });
+  tx({ type: 'expense', amount: 4150, date: addDays(t, -60), categoryId: 'c-other', accountId: 'a-rajhi', investmentId: 'inv-gold', qty: 10, note: ar ? 'شراء ذهب' : 'Bought gold' });
+
+  d.goals = [
+    { id: 'g-emergency', name: ar ? 'صندوق طوارئ 3 أشهر' : '3-month emergency fund', targetAmount: 15000, accountId: 'a-ahli', createdAt: now },
+    { id: 'g-car', name: ar ? 'دفعة أولى لسيارة' : 'Car down payment', targetAmount: 25000, targetDate: addMonths(t, 14), createdAt: now }
+  ];
+  d.wishlist = [
+    { id: 'w-phone', name: ar ? 'آيفون جديد' : 'New iPhone', price: 4999, priority: 'optional', createdAt: now },
+    { id: 'w-chair', name: ar ? 'كرسي مكتب مريح' : 'Ergonomic office chair', price: 1200, priority: 'important', createdAt: now },
+    { id: 'w-watch', name: ar ? 'ساعة ذكية' : 'Smartwatch', price: 1650, priority: 'luxury', createdAt: now },
+    { id: 'w-trip', name: ar ? 'رحلة لإسطنبول' : 'Trip to Istanbul', price: 7500, priority: 'flexible', createdAt: now }
+  ];
 
   // Trip ~2 weeks ago
   const tripStart = addDays(t, -16);

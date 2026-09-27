@@ -7,6 +7,10 @@ import {
 } from './finance';
 import { addDays, diffDays, monthRange, salaryCycle, today } from './dates';
 
+/** Priorities that can be dropped entirely when money is short, in the order they're cut. */
+export const DROPPABLE: Priority[] = ['luxury', 'optional', 'flexible'];
+export const PRIORITIES: Priority[] = ['essential', 'important', 'flexible', 'optional', 'luxury'];
+
 export const defaultPriority = (c: Commitment): Priority => c.priority ?? (c.kind === 'subscription' ? 'optional' : c.kind === 'daily' ? 'important' : 'essential');
 
 export interface Obligation {
@@ -64,7 +68,7 @@ export function cashflow(d: AppData): Cashflow {
   };
 }
 
-export type StepKind = 'pauseSub' | 'trimDaily' | 'cutLiving' | 'cardMin' | 'askDelay' | 'dropImportant' | 'useEmergency';
+export type StepKind = 'pauseSub' | 'stopDaily' | 'trimDaily' | 'cutLiving' | 'cardMin' | 'askDelay' | 'dropImportant' | 'useEmergency';
 
 export interface Step {
   kind: StepKind;
@@ -88,9 +92,11 @@ export function deficitSteps(d: AppData, cf: Cashflow): Step[] {
     steps.push({ ...s, remaining: Math.max(0, gap) });
   };
   const byAmount = (a: Obligation, b: Obligation) => b.amount - a.amount;
-  // 1. things you can live without
-  cf.obligations.filter((o) => o.priority === 'optional' && o.kind !== 'daily').sort(byAmount).forEach((o) => add({ kind: 'pauseSub', label: o.label, amount: o.amount, refId: o.refId }));
-  cf.obligations.filter((o) => o.priority === 'optional' && o.kind === 'daily').sort(byAmount).forEach((o) => add({ kind: 'trimDaily', label: o.label, amount: o.amount, a: o.count, refId: o.refId }));
+  // 1. things you can live without: luxuries first, then optional, then flexible ones
+  for (const p of DROPPABLE) {
+    cf.obligations.filter((o) => o.priority === p && o.kind !== 'daily' && o.kind !== 'person').sort(byAmount).forEach((o) => add({ kind: 'pauseSub', label: o.label, amount: o.amount, refId: o.refId }));
+    cf.obligations.filter((o) => o.priority === p && o.kind === 'daily').sort(byAmount).forEach((o) => add({ kind: 'stopDaily', label: o.label, amount: o.amount, a: o.count, refId: o.refId }));
+  }
   // 2. spend a bit less day to day
   if (cf.livingLeft > 0 && gap > 0) {
     const cut = Math.min(gap, round2(cf.livingLeft * 0.3));
@@ -132,7 +138,7 @@ export function monthlyPicture(d: AppData): MonthlyPicture {
   const active = d.commitments.filter((c) => c.active);
   const daily = round2(active.filter((c) => c.kind === 'daily').reduce((s, c) => s + commitmentMonthly(c), 0));
   const fixed = round2(commitmentsMonthly(d) - daily);
-  const subsOptional = round2(active.filter((c) => c.kind !== 'daily' && defaultPriority(c) === 'optional').reduce((s, c) => s + commitmentMonthly(c), 0));
+  const subsOptional = round2(active.filter((c) => c.kind !== 'daily' && DROPPABLE.includes(defaultPriority(c))).reduce((s, c) => s + commitmentMonthly(c), 0));
   const living = d.settings.livingBudget;
   const mins = round2(plan.firstMonth.mins);
   return { salary: d.settings.salary, fixed, subsOptional, daily, mins, living, gap: round2(d.settings.salary - fixed - daily - mins - living) };

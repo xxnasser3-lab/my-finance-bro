@@ -1,14 +1,13 @@
 import { useState } from 'preact/hooks';
 import { t, fmtMonth, dayName, monthName } from '../i18n';
 import { useData, getData, update, upsert, uid, removeById } from '../store/store';
-import type { Commitment, CommitmentKind, Priority } from '../store/types';
+import type { Commitment, CommitmentKind } from '../store/types';
 import { defaultPriority } from '../logic/advisor';
 import { Icon, Chev } from '../components/Icon';
+import { PRI_COLOR, PriorityPicker, priLabel } from '../components/priority';
 import { TopBar, Money, Collapse, Sheet, Seg, Field, NumInput, Switch, catName, fmt, toast, confirmDo } from '../components/ui';
 import { commitmentDueIn, commitmentMonthly, commitmentPaid, commitmentsMonthly, nextInstallmentDate, oweDebts, creditAccounts, cardStatement } from '../logic/finance';
 import { addDays, clampDay, daysInMonth, nowTime, today } from '../logic/dates';
-
-const PRI_COLOR: Record<Priority, string> = { essential: '#CDBEB0', important: '#5B8FD0', optional: '#DD6220' };
 
 function CommitmentSheet({ item, kind = 'subscription', onClose }: { item?: Commitment; kind?: CommitmentKind; onClose: () => void }) {
   const d = getData();
@@ -91,8 +90,9 @@ function CommitmentSheet({ item, kind = 'subscription', onClose }: { item?: Comm
         </Field>
       </div>
       <Field label={t('com.priority')}>
-        <Seg<Priority> value={defaultPriority(c)} onChange={(v) => set({ priority: v })} options={[['essential', t('pri.essential')], ['important', t('pri.important')], ['optional', t('pri.optional')]]} />
+        <PriorityPicker value={defaultPriority(c)} onChange={(v) => set({ priority: v })} />
       </Field>
+      {item && <div class="between small"><span class="col gap4"><span>{t('com.active')}</span><span class="xs faint">{t('com.activeHint')}</span></span><Switch on={c.active} onChange={(v) => set({ active: v, lastPosted: v && c.kind === 'daily' ? addDays(today(), -1) : c.lastPosted })} label={t('com.active')} /></div>}
       {c.kind !== 'daily' && <div class="between small"><span>{t('com.variable')}</span><Switch on={!!c.variable} onChange={(v) => set({ variable: v })} label={t('com.variable')} /></div>}
       <div class="row-flex">
         {item && <button class="btn danger" onClick={del} aria-label={t('delete')}><Icon name="trash" size={18} /></button>}
@@ -122,15 +122,15 @@ export function Commitments() {
   for (const c of d.commitments) {
     if (!c.active) continue;
     const due = commitmentDueIn(c, y, m0);
-    if (due) dots.set(+due.slice(8), c.kind === 'subscription' ? '#DD6220' : dots.get(+due.slice(8)) ?? '#CDBEB0');
+    if (due) dots.set(+due.slice(8), c.kind === 'subscription' ? 'var(--accent)' : dots.get(+due.slice(8)) ?? 'var(--text-2)');
   }
   for (const debt of oweDebts(d)) {
     const due = nextInstallmentDate(d, debt);
-    if (due && due.slice(0, 7) === clampDay(y, m0, 1).slice(0, 7) && !dots.has(+due.slice(8))) dots.set(+due.slice(8), '#5B8FD0');
+    if (due && due.slice(0, 7) === clampDay(y, m0, 1).slice(0, 7) && !dots.has(+due.slice(8))) dots.set(+due.slice(8), 'var(--blue)');
   }
   for (const acc of creditAccounts(d)) {
     const st = cardStatement(d, acc);
-    if (st && st.dueDate.slice(0, 7) === clampDay(y, m0, 1).slice(0, 7) && !dots.has(+st.dueDate.slice(8))) dots.set(+st.dueDate.slice(8), '#5B8FD0');
+    if (st && st.dueDate.slice(0, 7) === clampDay(y, m0, 1).slice(0, 7) && !dots.has(+st.dueDate.slice(8))) dots.set(+st.dueDate.slice(8), 'var(--blue)');
   }
   const blanks = new Date(y, m0, 1).getDay();
   const dim = daysInMonth(y, m0);
@@ -152,7 +152,7 @@ export function Commitments() {
         <button class="grow col gap4" style="min-width:0;background:none;border:0;padding:0;text-align:start" onClick={() => setEdit({ item: c })}>
           <span class="semi ellipsis" style="font-size:14px">{c.name}</span>
           <span class="row-flex xs faint" style="gap:6px">
-            <span style={{ color: PRI_COLOR[pri] }}>{t(('pri.' + pri) as 'pri.essential')}</span> ·
+            <span style={{ color: PRI_COLOR[pri] }}>{c.active ? priLabel(pri) : t('com.paused')}</span> ·
             {c.kind === 'daily' ? (c.weekdays?.length ? c.weekdays.map((w) => dayName(w, true)).join(' ') : t('com.everyDay')) + (c.auto !== false ? ' · ' + t('com.auto') : '') : ' ' + t('day') + ' ' + c.dayOfMonth + ' · ' + (c.cycle === 'yearly' ? t('com.yearlyC') + ' ' + monthName((c.month ?? 1) - 1) : t('com.monthlyC'))}
             {acc && <span class="tag">{acc.name}</span>}
           </span>
@@ -179,9 +179,9 @@ export function Commitments() {
           <div class="col gap4"><span class="xs muted">{t('com.subs')}</span><span style="font-size:22px"><Money v={subsMonthly} class="bold neg" /></span></div>
         </div>
         <div class="bar tall" style="gap:2px">
-          <div style={{ width: ((monthly - subsMonthly - dailyMonthly) / Math.max(1, monthly)) * 100 + '%', background: '#8C7564', borderRadius: 0 }} />
+          <div style={{ width: ((monthly - subsMonthly - dailyMonthly) / Math.max(1, monthly)) * 100 + '%', background: 'var(--sand)', borderRadius: 0 }} />
           <div style={{ width: (subsMonthly / Math.max(1, monthly)) * 100 + '%', borderRadius: 0 }} />
-          <div style={{ width: (dailyMonthly / Math.max(1, monthly)) * 100 + '%', background: '#B07A52', borderRadius: 0 }} />
+          <div style={{ width: (dailyMonthly / Math.max(1, monthly)) * 100 + '%', background: 'var(--brown)', borderRadius: 0 }} />
         </div>
         <span class="small muted">{t('com.yearly', { v: fmt(subsMonthly * 12) })}</span>
       </div>
@@ -206,13 +206,13 @@ export function Commitments() {
           })}
         </div>
         <div class="legend" style="font-size:10px">
-          <span><i class="dot" style="background:#CDBEB0;border-radius:99px" />{t('com.legendFixed')}</span>
-          <span><i class="dot" style="background:#DD6220;border-radius:99px" />{t('com.legendSub')}</span>
-          <span><i class="dot" style="background:#5B8FD0;border-radius:99px" />{t('com.legendInst')}</span>
+          <span><i class="dot" style="background:var(--text-2);border-radius:99px" />{t('com.legendFixed')}</span>
+          <span><i class="dot" style="background:var(--accent);border-radius:99px" />{t('com.legendSub')}</span>
+          <span><i class="dot" style="background:var(--blue);border-radius:99px" />{t('com.legendInst')}</span>
         </div>
       </div>
 
-      <div class="card row-flex" style="padding:12px 14px;gap:12px;border-color:#3a2a1f">
+      <div class="card row-flex" style="padding:12px 14px;gap:12px;border-color:var(--line-2)">
         <Icon name="card" size={20} />
         <div class="grow col gap4">
           <span class="xs muted">{t('com.defaultCard')}</span>

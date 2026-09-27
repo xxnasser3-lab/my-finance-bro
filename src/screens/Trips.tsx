@@ -16,6 +16,7 @@ function TripSheet({ item, onClose }: { item?: Trip; onClose: () => void }) {
   const set = (p: Partial<Trip>) => setTr((x) => ({ ...x, ...p }));
   const save = () => {
     if (!tr.name.trim()) return toast(t('name'));
+    if (tr.end && tr.end < tr.start) return toast(t('trip.endBefore'));
     update((x) => ({ ...x, trips: upsert(x.trips, { ...tr, name: tr.name.trim() }) }));
     onClose();
     if (!item) navigate('/trip/' + tr.id);
@@ -60,10 +61,10 @@ export function Trips() {
           <a href={'#/trip/' + tr.id} class="card pad col gap10" style="color:var(--text)">
             <div class="between">
               <span class="col gap4"><span class="semi" style="font-size:15px">{tr.name}</span><span class="xs faint">{fmtDay(tr.start, false, true)}{tr.end ? ' – ' + fmtDay(tr.end) : ''}</span></span>
-              <span class={'pill' + (active ? ' accent' : '')}>{active ? t('trip.active') : t('trip.ended')}</span>
+              <span class={'pill' + (active ? ' accent' : '')}>{active ? t('trip.active') : t0 < tr.start ? t('trip.upcoming') : t('trip.ended')}</span>
             </div>
             <div class="between"><Money v={spent} class="bold" />{tr.budget ? <span class="xs muted">{t('trip.spent', { b: fmt(tr.budget) })}</span> : null}</div>
-            {tr.budget ? <Bar pct={(spent / tr.budget) * 100} color={spent > tr.budget ? '#E5484D' : '#E8B64C'} /> : null}
+            {tr.budget ? <Bar pct={(spent / tr.budget) * 100} color={spent > tr.budget ? 'var(--danger-strong)' : 'var(--gold)'} /> : null}
           </a>
         );
       })}
@@ -88,28 +89,29 @@ export function TripDetail({ id }: { id: string }) {
     cats.set(k, (cats.get(k) ?? 0) + x.amount);
   });
   const catRows = [...cats.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: catName(catById(d, k)), v, sub: Math.round((v / Math.max(1, spent)) * 100) + '%', color: undefined as string | undefined }));
-  catRows.forEach((r, i) => (r.color = i === 0 ? '#E8B64C' : '#8C7564'));
+  catRows.forEach((r, i) => (r.color = i === 0 ? 'var(--gold)' : 'var(--sand)'));
   const t0 = today();
   const active = t0 >= tr.start && t0 <= end;
-  const dayGroups = byDay.map((v, i) => ({ date: addDays(tr.start, i), v })).filter((g) => g.v > 0);
+  // group by the transactions' own dates, so bookings made before the trip still show up
+  const dayGroups = [...new Set(txs.map((x) => x.date))].map((date) => ({ date, v: txs.filter((x) => x.date === date).reduce((a, x) => a + x.amount, 0) }));
   return (
     <div class="screen no-nav">
       <TopBar back title={t('trip.title')} fallback="/trips">
         <button class="icon-btn" aria-label={t('edit')} onClick={() => setEdit(true)}><Icon name="edit" size={17} /></button>
       </TopBar>
-      <div class="col gap14" style="position:relative;border-radius:18px;overflow:hidden;background:linear-gradient(160deg,#5a3a1c 0%,#2a1a10 50%,var(--surface) 100%);border:1px solid #4a3122;padding:18px">
-        <svg width="100%" height="80" viewBox="0 0 390 90" preserveAspectRatio="none" style="position:absolute;left:0;bottom:0;opacity:.18" aria-hidden="true"><path d="M0 90 L0 60 L40 38 L70 52 L110 20 L150 48 L190 30 L230 56 L270 26 L320 50 L360 34 L390 46 L390 90 Z" fill="#E8B64C" /></svg>
+      <div class="col gap14" style="position:relative;border-radius:18px;overflow:hidden;background:var(--hero-trip);border:1px solid var(--line-2);padding:18px">
+        <svg width="100%" height="80" viewBox="0 0 390 90" preserveAspectRatio="none" style="position:absolute;left:0;bottom:0;opacity:.18" aria-hidden="true"><path d="M0 90 L0 60 L40 38 L70 52 L110 20 L150 48 L190 30 L230 56 L270 26 L320 50 L360 34 L390 46 L390 90 Z" style="fill:var(--gold)" /></svg>
         <div class="between" style="position:relative;align-items:flex-start">
-          <div class="col gap4"><span style="font-size:22px;font-weight:700">{tr.name}</span><span class="small" style="color:#e9d8c4">{fmtDay(tr.start)} – {fmtDay(end)} · {nDays} {t('days')}</span></div>
-          <span class="pill" style="background:rgba(245,238,230,.1);color:var(--text)">{active ? t('trip.active') : t('trip.ended')}</span>
+          <div class="col gap4"><span style="font-size:22px;font-weight:700">{tr.name}</span><span class="small" style="color:var(--text-2)">{fmtDay(tr.start)} – {fmtDay(end)} · {nDays} {t('days')}</span></div>
+          <span class="pill" style="background:var(--tint);color:var(--text)">{active ? t('trip.active') : t0 < tr.start ? t('trip.upcoming') : t('trip.ended')}</span>
         </div>
         <div class="row-flex" style="position:relative;align-items:baseline;gap:8px">
           <span style="font-size:32px;line-height:1"><Money v={spent} class="bold" /></span>
-          {tr.budget ? <span class="small" style="color:#e9d8c4">{t('trip.spent', { b: fmt(tr.budget) })}</span> : null}
+          {tr.budget ? <span class="small" style="color:var(--text-2)">{t('trip.spent', { b: fmt(tr.budget) })}</span> : null}
         </div>
-        {tr.budget ? <div style="position:relative"><Bar pct={(spent / tr.budget) * 100} color={spent > tr.budget ? '#E5484D' : '#E8B64C'} /></div> : null}
-        <div class="grid3" style="position:relative;color:#e9d8c4;font-size:11px">
-          <div class="col gap4"><span>{t('trip.left')}</span><Money v={(tr.budget ?? 0) - spent} class="bold" /></div>
+        {tr.budget ? <div style="position:relative"><Bar pct={(spent / tr.budget) * 100} color={spent > tr.budget ? 'var(--danger-strong)' : 'var(--gold)'} /></div> : null}
+        <div class="grid3" style="position:relative;color:var(--text-2);font-size:11px">
+          <div class="col gap4"><span>{t('trip.left')}</span>{tr.budget ? <Money v={tr.budget - spent} class={'bold' + (spent > tr.budget ? ' neg' : '')} /> : <span class="bold">—</span>}</div>
           <div class="col gap4"><span>{t('trip.avg')}</span><Money v={spent / nDays} class="bold" /></div>
           <div class="col gap4"><span>{t('trip.count')}</span><span class="n bold">{txs.length}</span></div>
         </div>

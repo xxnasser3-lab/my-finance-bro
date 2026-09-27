@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { t, fmtDay, monthName } from '../i18n';
 import { useData, update } from '../store/store';
 import { Icon } from '../components/Icon';
@@ -6,6 +6,10 @@ import { TopBar, Seg, Money, Bar, fmt, Empty } from '../components/ui';
 import { LineChart, HBars } from '../components/charts';
 import { balance, monthFromNow, planDebts, simulate } from '../logic/finance';
 import { freeLabel } from './Debts';
+import { ForecastCard } from './Forecast';
+import { GoalCard } from './Goals';
+import { goalStatuses } from '../logic/goals';
+import { wishStatuses } from '../logic/wishlist';
 
 export function Plan() {
   const d = useData();
@@ -28,11 +32,11 @@ export function Plan() {
   };
   const fm = cur.firstMonth;
   const alloc = [
-    { label: t('plan.fixed'), v: fm.fixed, color: '#8C7564' },
-    { label: t('plan.mins'), v: fm.mins, color: '#8C7564' },
-    { label: t('plan.living'), v: fm.living, color: '#8C7564' },
-    { label: fm.save ? t('plan.save') : t('plan.savePaused'), v: fm.save, color: '#5B8FD0' },
-    { label: t('plan.extra'), v: fm.extra, color: '#DD6220' }
+    { label: t('plan.fixed'), v: fm.fixed, color: 'var(--sand)' },
+    { label: t('plan.mins'), v: fm.mins, color: 'var(--sand)' },
+    { label: t('plan.living'), v: fm.living, color: 'var(--sand)' },
+    { label: fm.save ? t('plan.save') : t('plan.savePaused'), v: fm.save, color: 'var(--blue)' },
+    { label: t('plan.extra'), v: fm.extra, color: 'var(--accent)' }
   ];
   const eAcc = d.accounts.find((a) => a.id === s.emergencyAccountId);
   const eBal = eAcc ? balance(d, eAcc) : 0;
@@ -41,12 +45,32 @@ export function Plan() {
   const bSave = (bonus.amount * bonus.toSavings) / 100;
   const bYou = Math.max(0, bonus.amount - bDebt - bSave);
   const interestGap = Math.abs(snow.interest - ava.interest);
+  // the what-if slider re-renders this screen constantly; these only depend on the data
+  const goals = useMemo(() => goalStatuses(d), [d]);
+  const wishes = useMemo(() => wishStatuses(d), [d]);
+  const buyable = wishes.filter((w) => w.tier === 'comfortable' || w.tier === 'half').length;
 
   return (
     <div class="screen">
-      <TopBar title={t('plan.title')}>
+      <TopBar title={t('nav.plan')}>
         <span class="pill green" style="padding:5px 10px"><i class="dot" style="background:var(--green);border-radius:99px" />{t('plan.live')}</span>
       </TopBar>
+
+      <ForecastCard />
+
+      <div class="grid2">
+        <a href="#/goals" class="tile" style="color:var(--text);gap:6px">
+          <span class="row-flex semi" style="gap:8px"><span style="color:var(--blue)"><Icon name="target" size={18} /></span>{t('plan.goals')}</span>
+          <span class="xs faint">{goals.length ? t('plan.goalsCount', { n: goals.length, a: goals.filter((g) => g.achieved).length }) : t('goal.addFirst')}</span>
+        </a>
+        <a href="#/wishlist" class="tile" style="color:var(--text);gap:6px">
+          <span class="row-flex semi" style="gap:8px"><span style="color:var(--gold)"><Icon name="wish" size={18} /></span>{t('plan.wish')}</span>
+          <span class="xs faint">{wishes.length ? t('plan.wishCount', { n: wishes.length, b: buyable }) : t('wish.addFirst')}</span>
+        </a>
+      </div>
+      {goals.slice(0, 2).map((g) => <a href="#/goals" style="color:inherit"><GoalCard s={g} compact /></a>)}
+
+      <span class="sec-title" style="padding-top:6px">{t('plan.title')}</span>
 
       {debts.length === 0 ? (
         <div class="card pad col gap8" style="align-items:center;padding:28px"><Icon name="check" size={30} /><span class="semi">{t('plan.noDebts')}</span></div>
@@ -61,7 +85,7 @@ export function Plan() {
       )}
 
       {cur.deficit && (
-        <div class="card row-flex small" style="padding:12px 14px;border-color:rgba(229,72,77,.35);background:var(--danger-soft);color:var(--danger)">
+        <div class="card row-flex small" style="padding:12px 14px;border-color:var(--danger-line);background:var(--danger-soft);color:var(--danger)">
           <Icon name="alert" size={18} />
           <span>{t('plan.deficit')}</span>
         </div>
@@ -77,23 +101,23 @@ export function Plan() {
           <div class="card pad col gap12">
             <div class="col gap4"><span class="h2">{t('plan.chart')}</span><span class="xs muted">{t('plan.chartSub')}</span></div>
             <div class="legend">
-              <span><i style="width:14px;height:2px;background:#DD6220;display:inline-block" />{t('plan.avalanche')}</span>
-              <span><i style="width:14px;height:2px;background:#5B8FD0;display:inline-block" />{t('plan.snowball')}</span>
+              <span><i style="width:14px;height:2px;background:var(--accent);display:inline-block" />{t('plan.avalanche')}</span>
+              <span><i style="width:14px;height:2px;background:var(--blue);display:inline-block" />{t('plan.snowball')}</span>
             </div>
             <LineChart
               count={horizon + 1}
               height={150}
               initial={Math.min(horizon, 6)}
               series={[
-                { values: snowS, color: '#5B8FD0', width: strategy === 'snowball' ? 2.5 : 1.5, opacity: strategy === 'snowball' ? 1 : 0.6 },
-                { values: avaS, color: '#DD6220', width: strategy === 'avalanche' ? 2.5 : 1.5, opacity: strategy === 'avalanche' ? 1 : 0.6 }
+                { values: snowS, color: 'var(--blue)', width: strategy === 'snowball' ? 2.5 : 1.5, opacity: strategy === 'snowball' ? 1 : 0.6 },
+                { values: avaS, color: 'var(--accent)', width: strategy === 'avalanche' ? 2.5 : 1.5, opacity: strategy === 'avalanche' ? 1 : 0.6 }
               ]}
               xLabels={[0, Math.round(horizon / 3), Math.round((2 * horizon) / 3), horizon].map(label)}
               tip={(i) => (
                 <span class="col" style="display:flex;flex-direction:column">
                   <b>{label(i)}</b>
-                  <span><i class="dot" style="background:#DD6220;display:inline-block" /> {fmt(avaS[i])}</span>
-                  <span><i class="dot" style="background:#5B8FD0;display:inline-block" /> {fmt(snowS[i])}</span>
+                  <span><i class="dot" style="background:var(--accent);display:inline-block" /> {fmt(avaS[i])}</span>
+                  <span><i class="dot" style="background:var(--blue);display:inline-block" /> {fmt(snowS[i])}</span>
                 </span>
               )}
             />
@@ -107,7 +131,7 @@ export function Plan() {
           <span>{t('plan.livingBudget')}</span>
           <span class="n bold" style="color:var(--text)">{fmt(living)}</span>
         </label>
-        <input type="range" min={Math.round(s.livingBudget * 0.4 / 100) * 100} max={Math.round(s.livingBudget * 1.8 / 100) * 100 || 5000} step={100} value={living} onInput={(e) => setLiving(+(e.target as HTMLInputElement).value)} style="width:100%;accent-color:#DD6220" />
+        <input type="range" min={Math.round(s.livingBudget * 0.4 / 100) * 100} max={Math.round(s.livingBudget * 1.8 / 100) * 100 || 5000} step={100} value={living} onInput={(e) => setLiving(+(e.target as HTMLInputElement).value)} style="width:100%;accent-color:var(--accent)" />
         {living !== s.livingBudget && (
           <button class="btn sm outline" onClick={() => update((x) => ({ ...x, settings: { ...x.settings, livingBudget: living } }))}>{t('save')} · {t('set.living')} {fmt(living)}</button>
         )}
@@ -126,7 +150,7 @@ export function Plan() {
             const href = x.kind === 'card' ? '/account/' + id : '/debt/' + id;
             return (
               <a class="row" href={'#' + href}>
-                <span class="n" style={{ width: '26px', height: '26px', borderRadius: '8px', background: i === 0 ? '#DD6220' : 'var(--surface-3)', color: i === 0 ? '#fff' : 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800, flexShrink: 0 }}>{i + 1}</span>
+                <span class="n" style={{ width: '26px', height: '26px', borderRadius: '8px', background: i === 0 ? 'var(--accent)' : 'var(--surface-3)', color: i === 0 ? '#fff' : 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800, flexShrink: 0 }}>{i + 1}</span>
                 <span class="grow col gap4" style="min-width:0">
                   <span class="semi ellipsis" style="font-size:14px">{x.name}</span>
                   <span class="xs faint">{t(('kindD.' + x.kind) as 'kindD.loan')}{x.rate > 0 ? ' · ' + +(x.rate * 1200).toFixed(1) + '%' : ''} · <span class="n">{fmt(x.balance)}</span></span>
@@ -148,13 +172,13 @@ export function Plan() {
           </div>
           <div class="bar tall" style="gap:2px">
             <div style={{ width: bonus.toDebt + '%', borderRadius: 0 }} />
-            <div style={{ width: bonus.toSavings + '%', background: '#5B8FD0', borderRadius: 0 }} />
-            <div style={{ width: 100 - bonus.toDebt - bonus.toSavings + '%', background: '#CDBEB0', borderRadius: 0 }} />
+            <div style={{ width: bonus.toSavings + '%', background: 'var(--blue)', borderRadius: 0 }} />
+            <div style={{ width: 100 - bonus.toDebt - bonus.toSavings + '%', background: 'var(--text-2)', borderRadius: 0 }} />
           </div>
           {[
-            [t('plan.bonusDebt'), bDebt, '#DD6220'],
-            [t('plan.bonusSave'), bSave, '#5B8FD0'],
-            [t('plan.bonusYou'), bYou, '#CDBEB0']
+            [t('plan.bonusDebt'), bDebt, 'var(--accent)'],
+            [t('plan.bonusSave'), bSave, 'var(--blue)'],
+            [t('plan.bonusYou'), bYou, 'var(--text-2)']
           ].map(([l, v, c]) => (
             <div class="row-flex small"><i class="dot" style={{ background: c as string }} /><span class="grow text2">{l}</span><Money v={v as number} class="bold" /></div>
           ))}
@@ -164,7 +188,7 @@ export function Plan() {
 
       <div class="card pad col gap10">
         <div class="between"><span class="h2">{t('plan.emergency')}</span><span class="small muted"><Money v={eBal} class="bold" /> / <span class="n">{fmt(s.emergencyTarget)}</span></span></div>
-        <Bar pct={(eBal / Math.max(1, s.emergencyTarget)) * 100} color="#5B8FD0" />
+        <Bar pct={(eBal / Math.max(1, s.emergencyTarget)) * 100} color="var(--blue)" />
         <span class="xs muted" style="line-height:1.7">{t('plan.emergencyNote')}</span>
       </div>
       {debts.length === 0 && !bonus.enabled && <Empty />}

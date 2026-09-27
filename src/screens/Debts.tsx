@@ -42,7 +42,7 @@ export function DebtRow({ debt }: { debt: Debt }) {
   return (
     <a class="row" href={'#/debt/' + debt.id} style={{ opacity: rem <= 0 ? 0.55 : 1 }}>
       {debt.kind === 'bnpl' ? (
-        <span class="ib" style={{ background: PROVIDER_COLORS[provider], fontSize: provider === 'tasaheel' && getLang() === 'ar' ? '9px' : '11px' }}>{providerShort(provider)}</span>
+        <span class="ib" style={{ background: PROVIDER_COLORS[provider], color: '#F5EEE6', borderColor: 'transparent', fontSize: provider === 'tasaheel' && getLang() === 'ar' ? '9px' : '11px' }}>{providerShort(provider)}</span>
       ) : (
         <span class="ib"><Icon name="bank" size={19} /></span>
       )}
@@ -51,10 +51,10 @@ export function DebtRow({ debt }: { debt: Debt }) {
         {debt.installmentsTotal ? (
           debt.installmentsTotal <= 6 ? (
             <span class="row-flex" style="gap:3px">
-              {Array.from({ length: debt.installmentsTotal }, (_, i) => <span style={{ flex: '1 1 0', height: '5px', borderRadius: '2px', background: i < paid ? '#CDBEB0' : '#3A2E25' }} />)}
+              {Array.from({ length: debt.installmentsTotal }, (_, i) => <span style={{ flex: '1 1 0', height: '5px', borderRadius: '2px', background: i < paid ? 'var(--text-2)' : 'var(--line-2)' }} />)}
             </span>
           ) : (
-            <Bar pct={(paid / debt.installmentsTotal) * 100} color="#CDBEB0" />
+            <Bar pct={(paid / debt.installmentsTotal) * 100} color="var(--text-2)" />
           )
         ) : null}
         <span class="xs faint">
@@ -100,6 +100,7 @@ export function Debts() {
   return (
     <div class="screen">
       <TopBar title={t('debt.title')}>
+        <button class="icon-btn" aria-label={t('rate.title')} onClick={() => navigate('/rate-check')}><Icon name="percent" size={18} /></button>
         <button class="btn sm" onClick={() => navigate('/debt/new')}><Icon name="plus" size={16} stroke={2.4} />{t('debt.new')}</button>
       </TopBar>
 
@@ -114,8 +115,8 @@ export function Debts() {
             <span class="semi" style="color:var(--accent-text)">{total > 0 ? freeLabel(plan.freeIdx) : '—'}</span>
           </div>
         </div>
-        <LineChart count={6} height={72} initial={5} series={[{ values: hist, color: '#DD6220', fill: true }]} xLabels={months.map((m) => monthName(m.m0, true))} tip={(i) => <span>{monthName(months[i].m0)} · {fmt(hist[i])}</span>} />
-        <div class="between small text2" style="padding-top:12px;border-top:1px solid #2e241d">
+        <LineChart count={6} height={72} initial={5} series={[{ values: hist, color: 'var(--accent)', fill: true }]} xLabels={months.map((m) => monthName(m.m0, true))} tip={(i) => <span>{monthName(months[i].m0)} · {fmt(hist[i])}</span>} />
+        <div class="between small text2" style="padding-top:12px;border-top:1px solid var(--line)">
           <span>{t('debt.paidYear')} <Money v={paidYear} class="bold" /></span>
         </div>
       </div>
@@ -178,7 +179,7 @@ export function Debts() {
                 <Money v={debtRemaining(d, x)} class={'small bold ' + (dir === 'owe' ? 'neg' : 'pos')} />
               </a>
             ))}
-            <button class="tile" style="align-items:center;justify-content:center;gap:6px;border-style:dashed;border-color:#4a3b31;background:transparent;color:var(--muted);font-size:12px;font-weight:600;min-height:112px" onClick={() => navigate('/debt/new/person')}>
+            <button class="tile" style="align-items:center;justify-content:center;gap:6px;border-style:dashed;border-color:var(--line-2);background:transparent;color:var(--muted);font-size:12px;font-weight:600;min-height:112px" onClick={() => navigate('/debt/new/person')}>
               <Icon name="plus" size={22} />
               {t('kindD.person')}
             </button>

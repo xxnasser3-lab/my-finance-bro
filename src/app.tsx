@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { setLang } from './i18n';
-import { hasData, setData, update, useData } from './store/store';
+import { flushSave, hasData, setData, update, useData } from './store/store';
 import type { AppData, Tx } from './store/types';
 import { hasVault, isUnlocked, lock } from './store/vault';
 import { navigate, useRoute } from './router';
@@ -27,8 +27,15 @@ import { Advice } from './screens/Advice';
 import { Investments } from './screens/Investments';
 import { InvestmentDetail } from './screens/InvestmentDetail';
 import { InvestmentForm } from './screens/InvestmentForm';
+import { Goals } from './screens/Goals';
+import { RateCheck } from './screens/RateCheck';
+import { Market } from './screens/Market';
+import { Stock } from './screens/Stock';
+import { Wishlist } from './screens/Wishlist';
+import { Forecast } from './screens/Forecast';
 import { autoPost } from './logic/autopost';
 import { migrate } from './store/seed';
+import { applyTheme } from './theme';
 
 const AUTO_LOCK_MS = 5 * 60 * 1000;
 
@@ -45,6 +52,7 @@ function Main({ onLock }: { onLock: () => void }) {
       /* private mode */
     }
   }, [d.settings.lang]);
+  useEffect(() => applyTheme(d.settings.theme, d.settings.mode), [d.settings.theme, d.settings.mode]);
   // log daily fixed expenses (on open, when they change, and when the app comes back the next day)
   useEffect(() => {
     const run = () => update((x) => autoPost(x) ?? x);
@@ -76,9 +84,15 @@ function Main({ onLock }: { onLock: () => void }) {
   else if (a === 'settings') screen = <Settings onLock={onLock} />;
   else if (a === 'advice') screen = <Advice />;
   else if (a === 'investments') screen = <Investments />;
-  else if (a === 'investment' && b === 'new') screen = <InvestmentForm key="new" />;
+  else if (a === 'investment' && b === 'new') screen = <InvestmentForm key={'new' + (c ?? '')} preset={c} />;
   else if (a === 'investment' && c === 'edit') screen = <InvestmentForm key={b} id={b} />;
   else if (a === 'investment') screen = <InvestmentDetail id={b} />;
+  else if (a === 'market') screen = <Market />;
+  else if (a === 'stock') screen = <Stock key={b} sym={b} />;
+  else if (a === 'rate-check') screen = <RateCheck />;
+  else if (a === 'goals') screen = <Goals />;
+  else if (a === 'wishlist') screen = <Wishlist />;
+  else if (a === 'forecast') screen = <Forecast />;
   else { screen = <Home />; tab = 'home'; }
 
   return (
@@ -100,7 +114,11 @@ export function App() {
     // lock after the app has been in the background for a while
     let hiddenAt = 0;
     const onVis = () => {
-      if (document.hidden) hiddenAt = Date.now();
+      if (document.hidden) {
+        hiddenAt = Date.now();
+        // the OS may kill a backgrounded PWA — write pending edits right away
+        if (isUnlocked()) flushSave().catch(() => {});
+      }
       else if (hiddenAt && Date.now() - hiddenAt > AUTO_LOCK_MS && isUnlocked()) {
         lock();
         setData(null);
@@ -123,7 +141,8 @@ export function App() {
     setState('open');
   };
 
-  const doLock = () => {
+  const doLock = async () => {
+    await flushSave().catch(() => {});
     lock();
     setData(null);
     setState('locked');

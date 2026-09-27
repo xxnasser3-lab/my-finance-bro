@@ -93,7 +93,7 @@ export function AccountForm({ id, kind }: { id?: string; kind?: AccountKind }) {
         <Field label={t('acc.skin')}>
           <div class="row-flex" style="flex-wrap:wrap;gap:8px">
             {SKINS.map((s, i) => (
-              <button type="button" aria-label={'skin ' + (i + 1)} onClick={() => set({ skin: i })} style={{ width: '40px', height: '26px', borderRadius: '6px', padding: 0, background: s.bg, border: '2px solid ' + (a.skin === i && !a.photo ? '#F5EEE6' : 'transparent') }} />
+              <button type="button" aria-label={'skin ' + (i + 1)} onClick={() => set({ skin: i })} style={{ width: '40px', height: '26px', borderRadius: '6px', padding: 0, background: s.bg, border: '2px solid ' + (a.skin === i && !a.photo ? 'var(--text)' : 'transparent') }} />
             ))}
             <span class="grow" />
             {a.photo ? (

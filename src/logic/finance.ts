@@ -379,7 +379,11 @@ export interface PlanDebt {
   name: string;
   kind: Debt['kind'];
   balance: number;
+  /** monthly rate, used to decide which debt to pay down first */
   rate: number;
+  /** whether the balance grows with profit each month. False for fixed-schedule loans
+   *  (murabaha / installments), where what's left to pay already includes the profit. */
+  accrues: boolean;
   min: (bal: number) => number;
   noExtra: boolean;
 }
@@ -399,7 +403,7 @@ export function planDebts(d: AppData): PlanDebt[] {
   for (const acc of creditAccounts(d)) {
     const bal = balance(d, acc);
     if (bal <= 0) continue;
-    list.push({ id: acc.id, name: acc.name, kind: 'card', balance: bal, rate: (acc.credit?.monthlyRate ?? 0) / 100, min: (b) => cardMin(acc, b), noExtra: false });
+    list.push({ id: acc.id, name: acc.name, kind: 'card', balance: bal, rate: (acc.credit?.monthlyRate ?? 0) / 100, accrues: true, min: (b) => cardMin(acc, b), noExtra: false });
   }
   for (const debt of oweDebts(d)) {
     const bal = debtRemaining(d, debt);
@@ -411,6 +415,7 @@ export function planDebts(d: AppData): PlanDebt[] {
       kind: debt.kind,
       balance: bal,
       rate: (debt.annualRate ?? 0) / 1200,
+      accrues: debt.kind !== 'bnpl' && !debt.installmentsTotal,
       min: (b) => Math.min(b, perMonth),
       noExtra: debt.kind === 'bnpl'
     });
@@ -456,6 +461,7 @@ export function simulate(d: AppData, strategy: 'avalanche' | 'snowball', livingO
     if (!active.length) break;
     let mins = 0;
     for (const x of active) {
+      if (!x.accrues) continue;
       const i = x.balance * x.rate;
       interest += i;
       x.balance += i;

@@ -7,6 +7,7 @@ import { CardViz, SKINS } from '../components/CardViz';
 import { LineChart } from '../components/charts';
 import { balance, balanceAt, creditAccounts, creditAvailable, liquidAccounts, sixMonths, totalLiquid } from '../logic/finance';
 import { loadPrices, portfolio, type PricesFile } from '../logic/investments';
+import { pct } from '../components/insight';
 import { navigate } from '../router';
 import { openTx } from '../sheets';
 import { fmt } from '../components/ui';
@@ -50,7 +51,7 @@ export function Wallet() {
               count={6}
               height={78}
               initial={5}
-              series={[{ values: history, color: '#5B8FD0', fill: true }]}
+              series={[{ values: history, color: 'var(--blue)', fill: true }]}
               xLabels={months.map((m) => monthName(m.m0, true))}
               tip={(i) => <span>{monthName(months[i].m0)} · {fmt(history[i])}</span>}
             />
@@ -76,10 +77,10 @@ export function Wallet() {
       )}
 
       <a href="#/investments" class="card pad row-flex" style="gap:14px;color:var(--text)">
-        <span class="ib" style="background:rgba(91,143,208,.14);border-color:transparent;color:#5B8FD0"><Icon name="up" size={19} /></span>
+        <span class="ib" style="background:var(--blue-soft);border-color:transparent;color:var(--blue)"><Icon name="trend" size={19} /></span>
         <span class="grow col gap4">
           <span class="semi" style="font-size:14px">{t('inv.title')}</span>
-          <span class="xs faint">{inv && inv.rows.length ? `${inv.rows.length} · ${inv.totalGainPct >= 0 ? '+' : ''}${inv.totalGainPct}%` : t('inv.noHoldings')}</span>
+          <span class="xs faint">{inv && inv.rows.length ? <>{inv.rows.length} · <span class={inv.totalGainPct >= 0 ? 'pos' : 'neg'}>{pct(inv.totalGainPct)}</span></> : t('inv.noHoldings')}</span>
         </span>
         {inv && inv.rows.length > 0 ? <Money v={inv.totalValue} class="bold" /> : null}
         <Chev dir="fwd" size={16} />

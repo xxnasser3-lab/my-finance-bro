@@ -10,7 +10,12 @@ const base = process.env.BASE_PATH ?? '/my-finance-bro/';
 
 export default defineConfig({
   base,
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    // where the price robot's ticker list lives, for the "add this ticker" link
+    __REPO__: JSON.stringify(process.env.GITHUB_REPOSITORY ?? 'xxnasser3-lab/my-finance-bro'),
+    __BRANCH__: JSON.stringify(process.env.GITHUB_REF_NAME ?? 'claude/gifted-johnson-tdf1pv')
+  },
   plugins: [
     preact(),
     VitePWA({

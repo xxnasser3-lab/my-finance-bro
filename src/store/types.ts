@@ -92,8 +92,8 @@ export interface Category {
 
 export type CommitmentKind = 'fixed' | 'subscription' | 'daily';
 
-/** How much it hurts to drop it when money is short */
-export type Priority = 'essential' | 'important' | 'optional';
+/** How much it hurts to drop it when money is short, worst-to-cut-first last */
+export type Priority = 'essential' | 'important' | 'flexible' | 'optional' | 'luxury';
 
 export interface Commitment {
   id: ID;
@@ -183,6 +183,28 @@ export interface Trip {
   note?: string;
 }
 
+export interface Goal {
+  id: ID;
+  name: string;
+  targetAmount: number;
+  /** optional target date YYYY-MM-DD; without one, we just project when it'll be reached */
+  targetDate?: string;
+  /** track this account's balance toward the goal; unset = total liquid savings */
+  accountId?: ID;
+  archived?: boolean;
+  createdAt: string;
+}
+
+export interface WishItem {
+  id: ID;
+  name: string;
+  price: number;
+  priority: Priority;
+  note?: string;
+  bought?: boolean;
+  createdAt: string;
+}
+
 export interface Settings {
   lang: Lang;
   name: string;
@@ -197,6 +219,12 @@ export interface Settings {
   emergencyAccountId?: ID;
   subscriptionsAccountId?: ID;
   hideAmounts: boolean;
+  theme?: 'ember' | 'oasis' | 'sea' | 'night';
+  mode?: 'dark' | 'light' | 'auto';
+  /** the user's own avatar on the home screen */
+  avatar?: string;
+  /** currency investments are shown in */
+  invCurrency?: 'SAR' | 'USD';
   remindDays: number;
   driveClientId?: string;
   lastBackupAt?: string;
@@ -213,4 +241,6 @@ export interface AppData {
   debts: Debt[];
   trips: Trip[];
   investments: Investment[];
+  goals: Goal[];
+  wishlist: WishItem[];
 }

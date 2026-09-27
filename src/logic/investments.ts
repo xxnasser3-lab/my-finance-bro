@@ -11,21 +11,76 @@ export interface PriceHistoryPoint {
   v: number;
 }
 
+export interface StockStats {
+  h52: number;
+  l52: number;
+  r1d: number | null;
+  r1w: number | null;
+  r1m: number | null;
+  r3m: number | null;
+  r6m: number | null;
+  r1y: number | null;
+  ytd: number | null;
+  /** annualized volatility, % */
+  vol: number | null;
+  ma50: number | null;
+  ma200: number | null;
+}
+
 export interface StockPrice {
   price: number;
   currency: string;
+  /** daily closes, about the last 6 months */
   history: PriceHistoryPoint[];
+  /** every 5th trading day over the last year */
+  weekly: PriceHistoryPoint[];
+  name?: string;
+  sector?: string;
+  prevClose?: number;
+  stats?: StockStats;
 }
 
 export interface PricesFile {
   updatedAt: string | null;
   usdSar: number;
   stocks: Record<string, StockPrice>;
-  gold: { sarPerGram?: Record<string, number>; usdPerOunce?: number; history?: PriceHistoryPoint[] };
+  gold: { sarPerGram?: Record<string, number>; usdPerOunce?: number; history?: PriceHistoryPoint[]; stats?: StockStats };
   failures?: string[];
 }
 
 const EMPTY_PRICES: PricesFile = { updatedAt: null, usdSar: 3.75, stocks: {}, gold: {} };
+
+interface RawV2 {
+  v: 2;
+  updatedAt: string | null;
+  usdSar: number;
+  dates: string[];
+  stocks: Record<string, { p: number; cur: string; n?: string; sec?: string; pc?: number; end: string; c: number[]; w: number[]; s?: StockStats }>;
+  gold: { sarPerGram?: Record<string, number>; usdPerOunce?: number; history?: PriceHistoryPoint[]; s?: StockStats };
+  failures?: string[];
+}
+
+/** Expand the compact file the robot writes (closes aligned to a shared trading calendar). */
+export function normalizePrices(raw: unknown): PricesFile {
+  const r = raw as Partial<RawV2> & Partial<PricesFile>;
+  if (!r || typeof r !== 'object' || !r.stocks) return EMPTY_PRICES;
+  if (r.v !== 2) {
+    const stocks: Record<string, StockPrice> = {};
+    for (const [k, e] of Object.entries(r.stocks as Record<string, StockPrice>)) stocks[k] = { ...e, history: e.history ?? [], weekly: e.weekly ?? [] };
+    return { ...EMPTY_PRICES, ...(r as PricesFile), stocks };
+  }
+  const dates = r.dates ?? [];
+  const index = new Map(dates.map((d, i) => [d, i]));
+  const stocks: Record<string, StockPrice> = {};
+  for (const [sym, e] of Object.entries(r.stocks)) {
+    const end = index.get(e.end) ?? dates.length - 1;
+    const history = e.c.map((v, i) => ({ date: dates[end - (e.c.length - 1 - i)], v })).filter((p) => p.date);
+    const weekly = e.w.map((v, i) => ({ date: dates[end - (e.w.length - 1 - i) * 5], v })).filter((p) => p.date);
+    stocks[sym] = { price: e.p, currency: e.cur, history, weekly, name: e.n, sector: e.sec, prevClose: e.pc, stats: e.s };
+  }
+  const g = r.gold ?? {};
+  return { updatedAt: r.updatedAt ?? null, usdSar: r.usdSar ?? 3.75, stocks, gold: { sarPerGram: g.sarPerGram, usdPerOunce: g.usdPerOunce, history: g.history, stats: g.s }, failures: r.failures };
+}
 
 let cache: PricesFile | null = null;
 let cachePromise: Promise<PricesFile> | null = null;
@@ -38,9 +93,9 @@ export async function loadPrices(force = false): Promise<PricesFile> {
   cachePromise = fetch(`${base}prices.json?h=${Math.floor(Date.now() / 3600000)}`, { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : EMPTY_PRICES))
     .catch(() => EMPTY_PRICES)
-    .then((p: PricesFile) => {
-      cache = p;
-      return p;
+    .then((raw) => {
+      cache = normalizePrices(raw);
+      return cache;
     });
   return cachePromise;
 }

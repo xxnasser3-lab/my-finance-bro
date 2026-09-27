@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { t, setLang, getLang } from '../i18n';
 import type { AppData, Lang } from '../store/types';
-import { bioEnabled, createVault, unlockWithBio, unlockWithPassword, wipeAll } from '../store/vault';
+import { bioEnabled, createVault, noPasswordEnabled, unlockAuto, unlockWithBio, unlockWithPassword, wipeAll } from '../store/vault';
 import { emptyData } from '../store/seed';
 import { sampleData } from '../store/sample';
 import { Icon } from '../components/Icon';
@@ -31,14 +31,26 @@ export function Unlock({ onUnlocked }: { onUnlocked: (d: AppData) => void }) {
   const [pass, setPass] = useState('');
   const [busy, setBusy] = useState(false);
   const [bio, setBio] = useState(false);
+  /** checking = deciding how to open; noPass = password is off, Face ID is the only gate */
+  const [mode, setMode] = useState<'checking' | 'password' | 'noPass'>('checking');
+  const [showPass, setShowPass] = useState(false);
   const [err, setErr] = useState('');
   const [restore, setRestore] = useState(false);
   const [, rerender] = useState(0);
   useEffect(() => {
-    bioEnabled().then((on) => {
+    (async () => {
+      const [noPass, on] = await Promise.all([noPasswordEnabled(), bioEnabled()]);
       setBio(on);
+      if (noPass && !on) {
+        try {
+          return onUnlocked(await unlockAuto());
+        } catch {
+          return setMode('password');
+        }
+      }
+      setMode(noPass ? 'noPass' : 'password');
       if (on) tryBio();
-    });
+    })();
   }, []);
   const tryBio = async () => {
     try {
@@ -60,19 +72,32 @@ export function Unlock({ onUnlocked }: { onUnlocked: (d: AppData) => void }) {
       setBusy(false);
     }
   };
+  if (mode === 'checking') return <div class="lock-wrap" />;
+  const passForm = (
+    <form class="col gap12" onSubmit={go}>
+      <Field label={mode === 'noPass' ? t('lock.backupPass') : t('lock.password')}>
+        <input class="input" type="password" autoComplete="current-password" autoFocus={mode === 'password'} value={pass} onInput={(e) => setPass((e.target as HTMLInputElement).value)} />
+      </Field>
+      {err && <span class="small" style="color:var(--danger)">{err}</span>}
+      <button class={'btn' + (mode === 'noPass' ? ' ghost' : '')} type="submit" disabled={busy}>{busy ? '…' : t('lock.unlock')}</button>
+    </form>
+  );
   return (
     <div class="lock-wrap">
       <LangSwitch onChange={() => rerender((n) => n + 1)} />
       <Logo />
       <h1 style="font-size:24px">{t('lock.title')}</h1>
-      <form class="col gap12" onSubmit={go}>
-        <Field label={t('lock.password')}>
-          <input class="input" type="password" autoComplete="current-password" autoFocus value={pass} onInput={(e) => setPass((e.target as HTMLInputElement).value)} />
-        </Field>
-        {err && <span class="small" style="color:var(--danger)">{err}</span>}
-        <button class="btn" type="submit" disabled={busy}>{busy ? '…' : t('lock.unlock')}</button>
-        {bio && <button class="btn ghost" type="button" onClick={tryBio}><Icon name="face" size={18} />{t('lock.bio')}</button>}
-      </form>
+      {mode === 'noPass' ? (
+        <>
+          <button class="btn" onClick={tryBio}><Icon name="face" size={18} />{t('lock.bio')}</button>
+          {showPass ? passForm : <button class="link-btn" style="align-self:center" onClick={() => setShowPass(true)}>{t('lock.usePass')}</button>}
+        </>
+      ) : (
+        <>
+          {passForm}
+          {bio && <button class="btn ghost" type="button" onClick={tryBio}><Icon name="face" size={18} />{t('lock.bio')}</button>}
+        </>
+      )}
       <details>
         <summary class="small muted" style="justify-content:center">{t('lock.forgotQ')}</summary>
         <div class="col gap10">
@@ -123,7 +148,7 @@ export function Onboarding({ onDone }: { onDone: (d: AppData) => void }) {
             <Field label={t('ob.living')} hint={t('ob.livingHint')}><NumInput value={living} onInput={setLiving} /></Field>
           </div>
           <label class="card row-flex" style="padding:14px 16px;gap:12px;cursor:pointer">
-            <input type="checkbox" checked={sample} onChange={(e) => setSample((e.target as HTMLInputElement).checked)} style="width:20px;height:20px;accent-color:#DD6220" />
+            <input type="checkbox" checked={sample} onChange={(e) => setSample((e.target as HTMLInputElement).checked)} style="width:20px;height:20px;accent-color:var(--accent)" />
             <span class="col gap4"><span class="semi">{t('ob.sample')}</span><span class="xs faint">{t('ob.sampleHint')}</span></span>
           </label>
           <button class="btn" onClick={() => setStep(1)}>{t('ob.next')}</button>
