@@ -66,6 +66,10 @@ export interface Tx {
   note?: string;
   /** logged automatically from a daily expense */
   auto?: boolean;
+  /** buy/sell of an investment (expense = buy, income = sell): excluded from budget/reports */
+  investmentId?: ID;
+  /** shares (stock) or grams (gold) bought/sold in this transaction */
+  qty?: number;
   createdAt: string;
 }
 
@@ -149,6 +153,27 @@ export interface Debt {
   createdAt: string;
 }
 
+export type InvestmentKind = 'stock' | 'gold' | 'other';
+export type GoldPurity = 24 | 22 | 21 | 18;
+
+export interface Investment {
+  id: ID;
+  kind: InvestmentKind;
+  name: string;
+  /** ticker for stocks, e.g. AAPL (matched against public/prices.json) */
+  symbol?: string;
+  currency: 'USD' | 'SAR';
+  /** shares for stocks, grams for gold */
+  quantity: number;
+  /** average cost per unit, in `currency` */
+  avgCost: number;
+  purity?: GoldPurity;
+  accountId?: ID;
+  note?: string;
+  archived?: boolean;
+  createdAt: string;
+}
+
 export interface Trip {
   id: ID;
   name: string;
@@ -187,4 +212,5 @@ export interface AppData {
   commitments: Commitment[];
   debts: Debt[];
   trips: Trip[];
+  investments: Investment[];
 }

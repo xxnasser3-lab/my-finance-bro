@@ -42,6 +42,14 @@ export default defineConfig({
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
             handler: 'CacheFirst',
             options: { cacheName: 'fonts', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } }
+          },
+          {
+            // Investment prices update on their own schedule (see prices.yml) — always try
+            // the network first so a re-opened tab gets the latest, falling back to the last
+            // fetched copy when offline.
+            urlPattern: /\/prices\.json(\?.*)?$/,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'prices', networkTimeoutSeconds: 4, expiration: { maxEntries: 2, maxAgeSeconds: 60 * 60 * 24 * 30 } }
           }
         ]
       }

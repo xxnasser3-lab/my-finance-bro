@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'preact/hooks';
 import { t, monthName } from '../i18n';
 import { useData } from '../store/store';
-import { Icon } from '../components/Icon';
+import { Icon, Chev } from '../components/Icon';
 import { Money, TopBar, Collapse } from '../components/ui';
 import { CardViz, SKINS } from '../components/CardViz';
 import { LineChart } from '../components/charts';
 import { balance, balanceAt, creditAccounts, creditAvailable, liquidAccounts, sixMonths, totalLiquid } from '../logic/finance';
+import { loadPrices, portfolio, type PricesFile } from '../logic/investments';
 import { navigate } from '../router';
 import { openTx } from '../sheets';
 import { fmt } from '../components/ui';
@@ -13,6 +15,11 @@ import type { Account } from '../store/types';
 
 export function Wallet() {
   const d = useData();
+  const [prices, setPrices] = useState<PricesFile | null>(null);
+  useEffect(() => {
+    if (d.investments.length) loadPrices().then(setPrices);
+  }, [d.investments.length]);
+  const inv = prices ? portfolio(d, prices) : null;
   const liquid = liquidAccounts(d);
   const credit = creditAccounts(d);
   const months = sixMonths();
@@ -67,6 +74,16 @@ export function Wallet() {
           <span>{t('acc.new')}</span>
         </button>
       )}
+
+      <a href="#/investments" class="card pad row-flex" style="gap:14px;color:var(--text)">
+        <span class="ib" style="background:rgba(91,143,208,.14);border-color:transparent;color:#5B8FD0"><Icon name="up" size={19} /></span>
+        <span class="grow col gap4">
+          <span class="semi" style="font-size:14px">{t('inv.title')}</span>
+          <span class="xs faint">{inv && inv.rows.length ? `${inv.rows.length} · ${inv.totalGainPct >= 0 ? '+' : ''}${inv.totalGainPct}%` : t('inv.noHoldings')}</span>
+        </span>
+        {inv && inv.rows.length > 0 ? <Money v={inv.totalValue} class="bold" /> : null}
+        <Chev dir="fwd" size={16} />
+      </a>
 
       {groups.map(([title, list]) =>
         list.length ? (

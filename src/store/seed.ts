@@ -76,15 +76,17 @@ export function emptyData(settings: Partial<Settings>): AppData {
     categories: defaultCategories(),
     commitments: [],
     debts: [],
-    trips: []
+    trips: [],
+    investments: []
   };
 }
 
-/** Bring older saved data up to date (new built-in categories etc.). */
+/** Bring older saved data up to date (new built-in categories, fields added later, etc.). */
 export function migrate(d: AppData): AppData {
   const have = new Set(d.categories.map((c) => c.id));
   const missing = defaultCategories().filter((c) => !have.has(c.id));
-  return missing.length ? { ...d, categories: [...d.categories, ...missing] } : d;
+  const next = missing.length ? { ...d, categories: [...d.categories, ...missing] } : d;
+  return next.investments ? next : { ...next, investments: [] };
 }
 
 export const catKeysAr: Record<string, string> = {

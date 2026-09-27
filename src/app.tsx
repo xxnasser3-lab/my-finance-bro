@@ -24,6 +24,9 @@ import { Settings } from './screens/Settings';
 import { TxSheet } from './screens/TxSheet';
 import { Onboarding, Unlock } from './screens/Lock';
 import { Advice } from './screens/Advice';
+import { Investments } from './screens/Investments';
+import { InvestmentDetail } from './screens/InvestmentDetail';
+import { InvestmentForm } from './screens/InvestmentForm';
 import { autoPost } from './logic/autopost';
 import { migrate } from './store/seed';
 
@@ -72,6 +75,10 @@ function Main({ onLock }: { onLock: () => void }) {
   else if (a === 'plan') { screen = <Plan />; tab = 'plan'; }
   else if (a === 'settings') screen = <Settings onLock={onLock} />;
   else if (a === 'advice') screen = <Advice />;
+  else if (a === 'investments') screen = <Investments />;
+  else if (a === 'investment' && b === 'new') screen = <InvestmentForm key="new" />;
+  else if (a === 'investment' && c === 'edit') screen = <InvestmentForm key={b} id={b} />;
+  else if (a === 'investment') screen = <InvestmentDetail id={b} />;
   else { screen = <Home />; tab = 'home'; }
 
   return (

@@ -1,0 +1,48 @@
+name: Update investment prices
+
+on:
+  schedule:
+    # Every hour, 13:00–22:00 UTC = 9:00 AM–6:00 PM US/Eastern during EDT (US market ~9:30am–4pm ET).
+    # Good enough for a personal tracker; the times drift by an hour under EST, which just means
+    # an extra/missing run at the open or close — harmless since a failed symbol keeps its last price.
+    - cron: '15 13-22 * * 1-5'
+    # Once a day for gold + FX, which move on their own schedule (not tied to the US stock market).
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prices
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # avoid racing a concurrent app deploy commit
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/fetch-prices.mjs
+      - name: Commit and push updated prices
+        run: |
+          if git diff --quiet -- public/prices.json; then
+            echo "No price change."
+            exit 0
+          fi
+          git config user.name "price-robot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/prices.json
+          git commit -m "Update investment prices"
+          # public/prices.json only reaches the live site once the app is rebuilt and
+          # redeployed (GitHub Pages serves the build output, not the repo directly),
+          # so this push deliberately triggers the normal deploy workflow — no [skip ci].
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push && break
+            sleep $((i * 5))
+          done

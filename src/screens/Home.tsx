@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'preact/hooks';
 import { t, fmtDay, dayName } from '../i18n';
 import { useData, update } from '../store/store';
 import { cashflow, tips } from '../logic/advisor';
@@ -8,12 +9,18 @@ import { Money, fmt, Collapse, Bar } from '../components/ui';
 import { LineChart } from '../components/charts';
 import { TxRow } from '../components/TxRow';
 import { balance, budgetView, liquidAccounts, netWorth, simulate, totalLiquid, upcoming } from '../logic/finance';
+import { loadPrices, portfolio, type PricesFile } from '../logic/investments';
 import { addDays, diffDays, parseISO, today } from '../logic/dates';
 import { SKINS } from '../components/CardViz';
 
 export function Home() {
   const d = useData();
   const s = d.settings;
+  const [prices, setPrices] = useState<PricesFile | null>(null);
+  useEffect(() => {
+    if (d.investments.length) loadPrices().then(setPrices);
+  }, [d.investments.length]);
+  const investmentsValue = prices ? portfolio(d, prices).totalValue : 0;
   const bv = budgetView(d);
   const plan = simulate(d, s.strategy);
   const up = upcoming(d, undefined, plan.firstMonth.perDebt);
@@ -85,7 +92,7 @@ export function Home() {
         )}
         <div class="between small muted" style="padding-top:12px;border-top:1px solid #2e241d">
           <span>{t('home.netWorth')}</span>
-          <Money v={netWorth(d)} class="text2 semi" />
+          <Money v={netWorth(d, investmentsValue)} class="text2 semi" />
         </div>
       </a>
 

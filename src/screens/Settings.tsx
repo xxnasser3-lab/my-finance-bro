@@ -208,6 +208,7 @@ export function Settings({ onLock }: { onLock: () => void }) {
           ['/categories', 'grid', t('qa.cats')],
           ['/bills', 'repeat', t('qa.bills')],
           ['/trips', 'plane', t('qa.trips')],
+          ['/investments', 'up', t('inv.title')],
           ['/txs', 'list', t('qa.txs')]
         ].map(([href, icon, label]) => (
           <a class="row" href={'#' + href}><span class="ib"><Icon name={icon} size={17} /></span><span class="grow semi">{label}</span></a>

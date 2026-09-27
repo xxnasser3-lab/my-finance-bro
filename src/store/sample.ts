@@ -63,6 +63,15 @@ export function sampleData(lang: 'ar' | 'en'): AppData {
     { id: 'd-saad', kind: 'person', name: ar ? 'سعد' : 'Saad', principal: 1500, opening: 1500, person: { avatar: 'young', direction: 'owed', agreement: ar ? 'يرجعها على دفعات' : 'Paying back in parts' }, createdAt: now }
   ];
 
+  // A couple of sample investments: a US stock bought in two batches, and some gold
+  d.investments = [
+    { id: 'inv-aapl', kind: 'stock', name: 'Apple Inc.', symbol: 'AAPL', currency: 'USD', quantity: 0, avgCost: 0, accountId: 'a-rajhi', createdAt: now },
+    { id: 'inv-gold', kind: 'gold', name: ar ? 'ذهب عيار 21' : 'Gold, 21k', currency: 'SAR', quantity: 0, avgCost: 0, purity: 21, accountId: 'a-rajhi', createdAt: now }
+  ];
+  tx({ type: 'expense', amount: 3630, date: addDays(t, -95), categoryId: 'c-other', accountId: 'a-rajhi', investmentId: 'inv-aapl', qty: 20, note: ar ? 'شراء أسهم AAPL' : 'Bought AAPL' });
+  tx({ type: 'expense', amount: 1150, date: addDays(t, -30), categoryId: 'c-other', accountId: 'a-rajhi', investmentId: 'inv-aapl', qty: 5, note: ar ? 'شراء أسهم AAPL' : 'Bought AAPL' });
+  tx({ type: 'expense', amount: 2650, date: addDays(t, -60), categoryId: 'c-other', accountId: 'a-rajhi', investmentId: 'inv-gold', qty: 10, note: ar ? 'شراء ذهب' : 'Bought gold' });
+
   // Trip ~2 weeks ago
   const tripStart = addDays(t, -16);
   d.trips = [

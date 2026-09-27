@@ -79,8 +79,8 @@ export function totalDebt(d: AppData): number {
   return round2(oweDebts(d).reduce((s, x) => s + debtRemaining(d, x), 0) + totalCreditOwed(d));
 }
 
-export function netWorth(d: AppData): number {
-  return round2(totalLiquid(d) - totalDebt(d) + owedToMe(d));
+export function netWorth(d: AppData, investmentsValue = 0): number {
+  return round2(totalLiquid(d) - totalDebt(d) + owedToMe(d) + investmentsValue);
 }
 
 export function installmentsPaid(d: AppData, debt: Debt): number {
@@ -183,7 +183,7 @@ export function rootCat(d: AppData, id?: ID): Category | undefined {
 // ---------------- living budget ----------------
 
 export function isLiving(d: AppData, tx: Tx): boolean {
-  if (tx.type !== 'expense' || tx.debtId || tx.commitmentId || tx.tripId) return false;
+  if (tx.type !== 'expense' || tx.debtId || tx.commitmentId || tx.tripId || tx.investmentId) return false;
   const c = catById(d, tx.categoryId);
   return c ? c.living : true;
 }
@@ -341,7 +341,7 @@ export function periodStats(d: AppData, start: string, end: string): PeriodStats
   let expense = 0;
   let count = 0;
   for (const tx of d.txs) {
-    if (!inRange(tx.date, start, end) || tx.type === 'transfer') continue;
+    if (!inRange(tx.date, start, end) || tx.type === 'transfer' || tx.investmentId) continue;
     count++;
     if (tx.type === 'income') {
       income += tx.amount;

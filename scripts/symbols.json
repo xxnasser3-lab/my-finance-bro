@@ -1,0 +1,13 @@
+{
+  "_comment": "US tickers the price robot fetches. Add your own tickers anywhere in this list — the robot fetches all of them every run, so this file alone never reveals which ones you actually own. For extra cover, add a few tickers you don't hold alongside real ones.",
+  "symbols": [
+    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "BRK-B", "AVGO",
+    "JPM", "V", "MA", "UNH", "HD", "PG", "COST", "MRK", "ABBV", "XOM",
+    "CVX", "WMT", "KO", "PEP", "BAC", "ADBE", "CRM", "NFLX", "AMD", "INTC",
+    "ORCL", "CSCO", "ABT", "TMO", "ACN", "MCD", "DIS", "LIN", "DHR", "WFC",
+    "TXN", "NKE", "PM", "NEE", "UNP", "RTX", "HON", "UPS", "QCOM", "IBM",
+    "BA", "CAT", "GS", "SBUX", "LOW", "AMGN", "SPGI", "INTU", "DE", "BLK",
+    "GE", "PLTR", "SHOP", "PYPL", "UBER", "SQ", "COIN", "SOFI", "SNOW", "ARM",
+    "VOO", "SPY", "QQQ", "VTI", "SCHD"
+  ]
+}
