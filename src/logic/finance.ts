@@ -133,8 +133,12 @@ export function cardStatement(d: AppData, acc: Account, on = today()): Statement
   let st = clampDay(y, m - 1, p.statementDay);
   if (dd < p.statementDay) st = addMonths(st, -1, p.statementDay);
   const statementBalance = Math.max(0, balanceAt(d, acc, st));
+  // an imported statement's own printed minimum/due-date for THIS exact cycle beats our
+  // 5%-rule estimate — exact until a newer statement is imported, then back to estimating
+  const snap = acc.lastStatement && acc.lastStatement.statementDate === st ? acc.lastStatement : undefined;
   const locked = cardLocked(acc);
-  const minimum = statementBalance <= 0 ? 0 : Math.min(statementBalance, cardMin(acc, Math.max(0, statementBalance - locked)) + cardLockedDue(acc));
+  const minimum = snap ? snap.minimumDue : statementBalance <= 0 ? 0 : Math.min(statementBalance, cardMin(acc, Math.max(0, statementBalance - locked)) + cardLockedDue(acc));
+  const dueDate = snap?.dueDate ?? addDays(st, p.dueDays);
   let paidSince = 0;
   let newSince = 0;
   for (const tx of d.txs) {
@@ -142,7 +146,7 @@ export function cardStatement(d: AppData, acc: Account, on = today()): Statement
     if (tx.type === 'transfer' && tx.toAccountId === acc.id) paidSince += tx.amount;
     if ((tx.type === 'expense' || tx.type === 'transfer') && tx.accountId === acc.id) newSince += tx.amount;
   }
-  return { statementDate: st, dueDate: addDays(st, p.dueDays), statementBalance: round2(statementBalance), minimum: round2(minimum), paidSince: round2(paidSince), newSince: round2(newSince) };
+  return { statementDate: st, dueDate, statementBalance: round2(statementBalance), minimum: round2(minimum), paidSince: round2(paidSince), newSince: round2(newSince) };
 }
 
 export function cardMin(acc: Account, bal: number): number {

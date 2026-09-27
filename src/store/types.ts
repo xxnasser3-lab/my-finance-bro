@@ -58,6 +58,19 @@ export interface InstallmentPlan {
   archived?: boolean;
 }
 
+/**
+ * The bank's own numbers for the last imported statement — the minimum/due-date it
+ * actually printed, not the app's 5%-rule estimate. Kept only until a newer statement
+ * is imported for the same cycle, then the estimate takes back over (see cardStatement).
+ */
+export interface StatementSnapshot {
+  /** the statement's own issue date, YYYY-MM-DD */
+  statementDate: string;
+  dueDate: string;
+  minimumDue: number;
+  totalDue: number;
+}
+
 export interface Account {
   id: ID;
   kind: AccountKind;
@@ -71,6 +84,7 @@ export interface Account {
   secrets: CardSecrets;
   credit?: CreditPolicy;
   installmentPlans?: InstallmentPlan[];
+  lastStatement?: StatementSnapshot;
   /** optional photo of the card (data URL, resized) */
   photo?: string;
   archived?: boolean;

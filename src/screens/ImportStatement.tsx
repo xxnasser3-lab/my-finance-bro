@@ -230,6 +230,15 @@ export function ImportStatement() {
       const net = txs.reduce((s, tx) => s + txEffect(acc, tx), 0);
       acc.opening = round2(patch.closingBalance - net);
     }
+    if (patch.dueDate && parsed.statementMonth) {
+      // the statement's own printed minimum/due-date — exact until a newer one is imported
+      acc.lastStatement = {
+        statementDate: `${parsed.statementMonth}-${String(acc.credit?.statementDay ?? 1).padStart(2, '0')}`,
+        dueDate: patch.dueDate,
+        minimumDue: patch.minimumDue,
+        totalDue: patch.totalDue
+      };
+    }
     acc.installmentPlans = mergePlans(acc.installmentPlans, toInstallmentPlans(parsed));
     update((x) => ({ ...x, accounts: upsert(x.accounts, acc), txs: txs.reduce((list, tx) => upsert(list, tx), x.txs) }));
     setDone(true);
