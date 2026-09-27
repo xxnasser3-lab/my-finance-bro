@@ -1,16 +1,23 @@
 import { useState } from 'preact/hooks';
 import { t, fmtMonth, dayName, monthName } from '../i18n';
 import { useData, getData, update, upsert, uid, removeById } from '../store/store';
-import type { Commitment, CommitmentKind } from '../store/types';
+import type { Commitment, CommitmentKind, Priority } from '../store/types';
+import { defaultPriority } from '../logic/advisor';
 import { Icon, Chev } from '../components/Icon';
 import { TopBar, Money, Collapse, Sheet, Seg, Field, NumInput, Switch, catName, fmt, toast, confirmDo } from '../components/ui';
-import { commitmentDueIn, commitmentPaid, commitmentsMonthly, nextInstallmentDate, oweDebts, creditAccounts, cardStatement } from '../logic/finance';
-import { clampDay, daysInMonth, nowTime, today } from '../logic/dates';
+import { commitmentDueIn, commitmentMonthly, commitmentPaid, commitmentsMonthly, nextInstallmentDate, oweDebts, creditAccounts, cardStatement } from '../logic/finance';
+import { addDays, clampDay, daysInMonth, nowTime, today } from '../logic/dates';
 
-function CommitmentSheet({ item, onClose }: { item?: Commitment; onClose: () => void }) {
+const PRI_COLOR: Record<Priority, string> = { essential: '#CDBEB0', important: '#5B8FD0', optional: '#DD6220' };
+
+function CommitmentSheet({ item, kind = 'subscription', onClose }: { item?: Commitment; kind?: CommitmentKind; onClose: () => void }) {
   const d = getData();
   const [c, setC] = useState<Commitment>(
-    item ? { ...item } : { id: uid(), kind: 'subscription', name: '', amount: 0, dayOfMonth: 1, cycle: 'monthly', accountId: d.settings.subscriptionsAccountId, categoryId: 'c-subs', active: true }
+    item
+      ? { ...item }
+      : kind === 'daily'
+        ? { id: uid(), kind: 'daily', name: '', amount: 0, dayOfMonth: 1, cycle: 'monthly', accountId: d.settings.salaryAccountId, categoryId: 'c-daily', active: true, auto: true, lastPosted: addDays(today(), -1) }
+        : { id: uid(), kind: 'subscription', name: '', amount: 0, dayOfMonth: 1, cycle: 'monthly', accountId: d.settings.subscriptionsAccountId, categoryId: 'c-subs', active: true }
   );
   const set = (p: Partial<Commitment>) => setC((x) => ({ ...x, ...p }));
   const save = () => {
@@ -25,14 +32,45 @@ function CommitmentSheet({ item, onClose }: { item?: Commitment; onClose: () => 
   };
   return (
     <Sheet onClose={onClose} title={item ? item.name : t('com.new')}>
-      <Seg<CommitmentKind> value={c.kind} onChange={(k) => set({ kind: k, categoryId: k === 'subscription' ? 'c-subs' : 'c-bills', accountId: k === 'subscription' ? d.settings.subscriptionsAccountId ?? c.accountId : c.accountId })} options={[['fixed', t('com.fixed')], ['subscription', t('com.subs')]]} />
+      <Seg<CommitmentKind>
+        value={c.kind}
+        onChange={(k) => set({ kind: k, categoryId: k === 'subscription' ? 'c-subs' : k === 'daily' ? 'c-daily' : 'c-bills', accountId: k === 'subscription' ? d.settings.subscriptionsAccountId ?? c.accountId : k === 'daily' ? d.settings.salaryAccountId ?? c.accountId : c.accountId, auto: k === 'daily' ? c.auto ?? true : c.auto, lastPosted: k === 'daily' ? addDays(today(), -1) : undefined, priority: undefined })}
+        options={[['fixed', t('com.fixed')], ['subscription', t('com.subs')], ['daily', t('com.daily')]]}
+      />
+      {c.kind === 'daily' && <span class="xs faint">{t('com.dailyHint')}</span>}
       <Field label={t('name')}><input class="input" value={c.name} onInput={(e) => set({ name: (e.target as HTMLInputElement).value })} /></Field>
+      {c.kind === 'daily' ? (
+        <>
+          <Field label={t('amount') + ' · ' + t('com.perDay')} hint={c.amount > 0 ? t('com.monthlyEq', { v: fmt(commitmentMonthly(c)) }) : undefined}>
+            <NumInput value={c.amount || undefined} onInput={(v) => set({ amount: v || 0 })} />
+          </Field>
+          <Field label={t('com.weekdays')}>
+            <div class="chips">
+              <button type="button" class={'chip solid' + (!c.weekdays?.length ? ' on' : '')} onClick={() => set({ weekdays: undefined })}>{t('com.everyDay')}</button>
+              {Array.from({ length: 7 }, (_, i) => {
+                const on = !!c.weekdays?.includes(i);
+                return (
+                  <button type="button" class={'chip solid' + (on ? ' on' : '')} onClick={() => {
+                    const cur = c.weekdays?.length ? c.weekdays : [];
+                    const next = on ? cur.filter((x) => x !== i) : [...cur, i].sort();
+                    set({ weekdays: next.length === 7 || next.length === 0 ? undefined : next });
+                  }}>{dayName(i, true)}</button>
+                );
+              })}
+            </div>
+          </Field>
+          <div class="between small"><span class="col gap4"><span>{t('com.auto')}</span><span class="xs faint" style="line-height:1.5">{t('com.autoHint')}</span></span><Switch on={c.auto !== false} onChange={(v) => set({ auto: v, lastPosted: today() })} label={t('com.auto')} /></div>
+        </>
+      ) : (
+        <>
       <div class="grid2">
         <Field label={t('amount')}><NumInput value={c.amount || undefined} onInput={(v) => set({ amount: v || 0 })} /></Field>
         <Field label={t('com.day')}><NumInput value={c.dayOfMonth} onInput={(v) => set({ dayOfMonth: Math.min(31, Math.max(1, Math.round(v || 1))) })} /></Field>
       </div>
       <Seg<'monthly' | 'yearly'> value={c.cycle} onChange={(v) => set({ cycle: v, month: v === 'yearly' ? c.month ?? new Date().getMonth() + 1 : undefined })} options={[['monthly', t('com.monthlyC')], ['yearly', t('com.yearlyC')]]} />
-      {c.cycle === 'yearly' && (
+        </>
+      )}
+      {c.kind !== 'daily' && c.cycle === 'yearly' && (
         <Field label={t('com.month')}>
           <select class="select" value={c.month} onChange={(e) => set({ month: +(e.target as HTMLSelectElement).value })}>
             {Array.from({ length: 12 }, (_, i) => <option value={i + 1}>{monthName(i)}</option>)}
@@ -52,7 +90,10 @@ function CommitmentSheet({ item, onClose }: { item?: Commitment; onClose: () => 
           </select>
         </Field>
       </div>
-      <div class="between small"><span>{t('com.variable')}</span><Switch on={!!c.variable} onChange={(v) => set({ variable: v })} label={t('com.variable')} /></div>
+      <Field label={t('com.priority')}>
+        <Seg<Priority> value={defaultPriority(c)} onChange={(v) => set({ priority: v })} options={[['essential', t('pri.essential')], ['important', t('pri.important')], ['optional', t('pri.optional')]]} />
+      </Field>
+      {c.kind !== 'daily' && <div class="between small"><span>{t('com.variable')}</span><Switch on={!!c.variable} onChange={(v) => set({ variable: v })} label={t('com.variable')} /></div>}
       <div class="row-flex">
         {item && <button class="btn danger" onClick={del} aria-label={t('delete')}><Icon name="trash" size={18} /></button>}
         <button class="btn grow" onClick={save}>{t('save')}</button>
@@ -63,7 +104,7 @@ function CommitmentSheet({ item, onClose }: { item?: Commitment; onClose: () => 
 
 export function Commitments() {
   const d = useData();
-  const [edit, setEdit] = useState<Commitment | null | undefined>(undefined);
+  const [edit, setEdit] = useState<{ item?: Commitment; kind?: CommitmentKind } | undefined>(undefined);
   const [off, setOff] = useState(0);
   const n = new Date();
   const md = new Date(n.getFullYear(), n.getMonth() + off, 1);
@@ -72,6 +113,8 @@ export function Commitments() {
   const t0 = today();
   const fixed = d.commitments.filter((c) => c.kind === 'fixed');
   const subs = d.commitments.filter((c) => c.kind === 'subscription');
+  const daily = d.commitments.filter((c) => c.kind === 'daily');
+  const dailyMonthly = commitmentsMonthly(d, 'daily');
   const monthly = commitmentsMonthly(d);
   const subsMonthly = commitmentsMonthly(d, 'subscription');
 
@@ -101,19 +144,22 @@ export function Commitments() {
   const row = (c: Commitment) => {
     const due = commitmentDueIn(c, n.getFullYear(), n.getMonth());
     const paid = due ? commitmentPaid(d, c, due) : false;
+    const pri = defaultPriority(c);
     const acc = d.accounts.find((a) => a.id === c.accountId);
     return (
       <div class="row" style={{ opacity: c.active ? 1 : 0.5 }}>
-        <button class="ib" style="font-size:12px;font-weight:800" onClick={() => setEdit(c)}>{c.name.slice(0, 2)}</button>
-        <button class="grow col gap4" style="min-width:0;background:none;border:0;padding:0;text-align:start" onClick={() => setEdit(c)}>
+        <button class="ib" style="font-size:12px;font-weight:800" onClick={() => setEdit({ item: c })}>{c.name.slice(0, 2)}</button>
+        <button class="grow col gap4" style="min-width:0;background:none;border:0;padding:0;text-align:start" onClick={() => setEdit({ item: c })}>
           <span class="semi ellipsis" style="font-size:14px">{c.name}</span>
           <span class="row-flex xs faint" style="gap:6px">
-            {t('day')} {c.dayOfMonth} · {c.cycle === 'yearly' ? t('com.yearlyC') + ' ' + monthName((c.month ?? 1) - 1) : t('com.monthlyC')}
+            <span style={{ color: PRI_COLOR[pri] }}>{t(('pri.' + pri) as 'pri.essential')}</span> ·
+            {c.kind === 'daily' ? (c.weekdays?.length ? c.weekdays.map((w) => dayName(w, true)).join(' ') : t('com.everyDay')) + (c.auto !== false ? ' · ' + t('com.auto') : '') : ' ' + t('day') + ' ' + c.dayOfMonth + ' · ' + (c.cycle === 'yearly' ? t('com.yearlyC') + ' ' + monthName((c.month ?? 1) - 1) : t('com.monthlyC'))}
             {acc && <span class="tag">{acc.name}</span>}
           </span>
         </button>
         <span class="col" style="align-items:flex-end;gap:4px">
-          <span class="n bold">{c.variable ? '~' : ''}{fmt(c.amount)}</span>
+          <span class="n bold">{c.variable ? '~' : ''}{fmt(c.amount)}{c.kind === 'daily' ? <span class="xs faint"> /{t('day')}</span> : null}</span>
+          {c.kind === 'daily' && <span class="xs faint">{t('com.monthlyEq', { v: fmt(commitmentMonthly(c)) })}</span>}
           {due && (paid ? <span class="pill green">{t('com.paid')}</span> : <button class="pill accent" style="border:0" onClick={() => markPaid(c)}>{t('com.markPaid')}</button>)}
         </span>
       </div>
@@ -123,18 +169,19 @@ export function Commitments() {
   return (
     <div class="screen no-nav">
       <TopBar back title={t('com.title')}>
-        <button class="icon-btn accent" aria-label={t('add')} onClick={() => setEdit(null)}><Icon name="plus" size={18} stroke={2.4} /></button>
+        <button class="icon-btn accent" aria-label={t('add')} onClick={() => setEdit({})}><Icon name="plus" size={18} stroke={2.4} /></button>
       </TopBar>
 
       <div class="card pad col gap14">
         <div class="grid3">
           <div class="col gap4"><span class="xs muted">{t('com.monthly')}</span><span style="font-size:22px"><Money v={monthly} class="bold" /></span></div>
-          <div class="col gap4"><span class="xs muted">{t('com.fixed')}</span><span style="font-size:22px"><Money v={monthly - subsMonthly} class="bold text2" /></span></div>
+          <div class="col gap4"><span class="xs muted">{t('com.fixed')}</span><span style="font-size:22px"><Money v={monthly - subsMonthly - dailyMonthly} class="bold text2" /></span></div>
           <div class="col gap4"><span class="xs muted">{t('com.subs')}</span><span style="font-size:22px"><Money v={subsMonthly} class="bold neg" /></span></div>
         </div>
         <div class="bar tall" style="gap:2px">
-          <div style={{ width: ((monthly - subsMonthly) / Math.max(1, monthly)) * 100 + '%', background: '#8C7564', borderRadius: 0 }} />
+          <div style={{ width: ((monthly - subsMonthly - dailyMonthly) / Math.max(1, monthly)) * 100 + '%', background: '#8C7564', borderRadius: 0 }} />
           <div style={{ width: (subsMonthly / Math.max(1, monthly)) * 100 + '%', borderRadius: 0 }} />
+          <div style={{ width: (dailyMonthly / Math.max(1, monthly)) * 100 + '%', background: '#B07A52', borderRadius: 0 }} />
         </div>
         <span class="small muted">{t('com.yearly', { v: fmt(subsMonthly * 12) })}</span>
       </div>
@@ -184,8 +231,16 @@ export function Commitments() {
         {subs.length === 0 && <div class="empty">{t('empty')}</div>}
         {subs.map(row)}
       </Collapse>
+      <Collapse open title={t('com.daily')} right={<Money v={dailyMonthly} class="small text2" />}>
+        {daily.length === 0 && (
+          <button class="empty" style="width:100%;background:none;border:0;color:var(--faint)" onClick={() => setEdit({ kind: 'daily' })}>
+            + {t('com.dailyHint')}
+          </button>
+        )}
+        {daily.map(row)}
+      </Collapse>
 
-      {edit !== undefined && <CommitmentSheet item={edit ?? undefined} onClose={() => setEdit(undefined)} />}
+      {edit !== undefined && <CommitmentSheet item={edit.item} kind={edit.kind} onClose={() => setEdit(undefined)} />}
     </div>
   );
 }

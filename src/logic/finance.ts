@@ -234,7 +234,19 @@ export function budgetView(d: AppData, budgetOverride?: number): BudgetView {
 
 // ---------------- commitments ----------------
 
+/** How many times a daily expense happens between two dates (inclusive). */
+export function dailyCount(c: Commitment, from: string, to: string): number {
+  if (to < from) return 0;
+  const days = diffDays(from, to) + 1;
+  if (!c.weekdays || c.weekdays.length === 0 || c.weekdays.length === 7) return days;
+  let n = 0;
+  const start = parseISO(from).getDay();
+  for (let i = 0; i < days; i++) if (c.weekdays.includes((start + i) % 7)) n++;
+  return n;
+}
+
 export function commitmentMonthly(c: Commitment): number {
+  if (c.kind === 'daily') return (c.amount * 365 * ((c.weekdays?.length || 7) / 7)) / 12;
   return c.cycle === 'yearly' ? c.amount / 12 : c.amount;
 }
 
@@ -243,6 +255,7 @@ export function commitmentsMonthly(d: AppData, kind?: Commitment['kind']): numbe
 }
 
 export function commitmentDueIn(c: Commitment, y: number, m0: number): string | undefined {
+  if (c.kind === 'daily') return undefined;
   if (c.cycle === 'yearly' && (c.month ?? 1) - 1 !== m0) return undefined;
   return clampDay(y, m0, c.dayOfMonth);
 }
@@ -274,10 +287,10 @@ export function upcoming(d: AppData, until?: string, planCardPay?: Record<ID, nu
   for (let i = 0; i < 3; i++) {
     const md = new Date(start.getFullYear(), start.getMonth() + i, 1);
     for (const c of d.commitments) {
-      if (!c.active) continue;
+      if (!c.active || c.kind === 'daily') continue;
       const due = commitmentDueIn(c, md.getFullYear(), md.getMonth());
       if (!due || due < t || due > end || commitmentPaid(d, c, due)) continue;
-      out.push({ date: due, kind: c.kind, title: c.name, amount: c.amount, refId: c.id, logo: c.name.slice(0, 2), icon: catById(d, c.categoryId)?.icon ?? (c.kind === 'subscription' ? 'repeat' : 'bolt') });
+      out.push({ date: due, kind: c.kind as 'fixed' | 'subscription', title: c.name, amount: c.amount, refId: c.id, logo: c.name.slice(0, 2), icon: catById(d, c.categoryId)?.icon ?? (c.kind === 'subscription' ? 'repeat' : 'bolt') });
     }
   }
   for (const debt of oweDebts(d)) {

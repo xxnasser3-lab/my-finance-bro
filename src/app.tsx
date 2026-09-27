@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { setLang } from './i18n';
-import { hasData, setData, useData } from './store/store';
+import { hasData, setData, update, useData } from './store/store';
 import type { AppData, Tx } from './store/types';
 import { hasVault, isUnlocked, lock } from './store/vault';
 import { navigate, useRoute } from './router';
@@ -23,6 +23,9 @@ import { Plan } from './screens/Plan';
 import { Settings } from './screens/Settings';
 import { TxSheet } from './screens/TxSheet';
 import { Onboarding, Unlock } from './screens/Lock';
+import { Advice } from './screens/Advice';
+import { autoPost } from './logic/autopost';
+import { migrate } from './store/seed';
 
 const AUTO_LOCK_MS = 5 * 60 * 1000;
 
@@ -39,6 +42,14 @@ function Main({ onLock }: { onLock: () => void }) {
       /* private mode */
     }
   }, [d.settings.lang]);
+  // log daily fixed expenses (on open, when they change, and when the app comes back the next day)
+  useEffect(() => {
+    const run = () => update((x) => autoPost(x) ?? x);
+    if (autoPost(d)) run();
+    const onVis = () => !document.hidden && autoPost(d) && run();
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [d.commitments]);
 
   let screen;
   let tab = '';
@@ -60,6 +71,7 @@ function Main({ onLock }: { onLock: () => void }) {
   else if (a === 'debt') screen = <DebtDetail id={b} />;
   else if (a === 'plan') { screen = <Plan />; tab = 'plan'; }
   else if (a === 'settings') screen = <Settings onLock={onLock} />;
+  else if (a === 'advice') screen = <Advice />;
   else { screen = <Home />; tab = 'home'; }
 
   return (
@@ -93,7 +105,7 @@ export function App() {
   }, []);
 
   const open = (d: AppData) => {
-    setData(d);
+    setData(migrate(d), true);
     setLang(d.settings.lang);
     if (location.hash && location.hash !== '#/') navigate('/', true);
     try {

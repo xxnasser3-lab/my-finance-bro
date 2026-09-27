@@ -27,6 +27,7 @@ export function defaultCategories(): Category[] {
     c('c-home', 'expense', 'home', 'البيت', 'home', '#A8998C', true),
     c('c-edu', 'expense', 'education', 'تعليم وكتب', 'book', '#E8B64C', true),
     c('c-kids', 'expense', 'kids', 'أطفال وعائلة', 'kid', '#F0C9A0', true),
+    c('c-daily', 'expense', 'dailyHabits', 'مصاريف يومية ثابتة', 'repeat', '#B07A52', false),
     c('c-travel', 'expense', 'travel', 'سفر ورحلات', 'plane', '#E8B64C', false),
     c('c-rent', 'expense', 'rent', 'إيجار وسكن', 'home', '#8C7564', false),
     c('c-bills', 'expense', 'bills', 'فواتير', 'bolt', '#8C7564', false),
@@ -79,11 +80,18 @@ export function emptyData(settings: Partial<Settings>): AppData {
   };
 }
 
+/** Bring older saved data up to date (new built-in categories etc.). */
+export function migrate(d: AppData): AppData {
+  const have = new Set(d.categories.map((c) => c.id));
+  const missing = defaultCategories().filter((c) => !have.has(c.id));
+  return missing.length ? { ...d, categories: [...d.categories, ...missing] } : d;
+}
+
 export const catKeysAr: Record<string, string> = {
   food: 'أكل ومطاعم', restaurants: 'مطاعم', delivery: 'توصيل', coffee: 'قهوة', groceries: 'بقالة', car: 'بنزين وسيارة', fuel: 'بنزين', maintenance: 'صيانة وغسيل',
   shopping: 'مشتريات', clothes: 'ملابس', electronics: 'إلكترونيات', fun: 'ترفيه', health: 'صحة', care: 'عناية شخصية', gifts: 'هدايا ومناسبات', charity: 'صدقة وزكاة',
   home: 'البيت', education: 'تعليم وكتب', kids: 'أطفال وعائلة', travel: 'سفر ورحلات', rent: 'إيجار وسكن', bills: 'فواتير', subscriptions: 'اشتراكات', debtPayments: 'سداد ديون',
-  fees: 'رسوم بنكية', other: 'أخرى', salary: 'راتب', bonus: 'بونص', sale: 'بيع غرض', loanRepaid: 'سداد سلفة', workers: 'تحويل من العمال', giftIn: 'هدية',
+  fees: 'رسوم بنكية', other: 'أخرى', dailyHabits: 'مصاريف يومية ثابتة', salary: 'راتب', bonus: 'بونص', sale: 'بيع غرض', loanRepaid: 'سداد سلفة', workers: 'تحويل من العمال', giftIn: 'هدية',
   refund: 'استرجاع مبلغ', borrowed: 'سلفة استلمتها', otherIn: 'دخل آخر'
 };
 
@@ -91,6 +99,6 @@ export const catKeysEn: Record<string, string> = {
   food: 'Food & dining', restaurants: 'Restaurants', delivery: 'Delivery', coffee: 'Coffee', groceries: 'Groceries', car: 'Fuel & car', fuel: 'Fuel', maintenance: 'Maintenance & wash',
   shopping: 'Shopping', clothes: 'Clothes', electronics: 'Electronics', fun: 'Entertainment', health: 'Health', care: 'Personal care', gifts: 'Gifts & occasions', charity: 'Charity & zakat',
   home: 'Home', education: 'Education & books', kids: 'Kids & family', travel: 'Travel & trips', rent: 'Rent & housing', bills: 'Bills', subscriptions: 'Subscriptions', debtPayments: 'Debt payments',
-  fees: 'Bank fees', other: 'Other', salary: 'Salary', bonus: 'Bonus', sale: 'Sold an item', loanRepaid: 'Loan repaid to me', workers: 'Transfer from workers', giftIn: 'Gift',
+  fees: 'Bank fees', other: 'Other', dailyHabits: 'Daily fixed expenses', salary: 'Salary', bonus: 'Bonus', sale: 'Sold an item', loanRepaid: 'Loan repaid to me', workers: 'Transfer from workers', giftIn: 'Gift',
   refund: 'Refund', borrowed: 'Borrowed money', otherIn: 'Other income'
 };

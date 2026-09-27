@@ -64,6 +64,8 @@ export interface Tx {
   debtId?: ID;
   commitmentId?: ID;
   note?: string;
+  /** logged automatically from a daily expense */
+  auto?: boolean;
   createdAt: string;
 }
 
@@ -84,7 +86,10 @@ export interface Category {
   archived?: boolean;
 }
 
-export type CommitmentKind = 'fixed' | 'subscription';
+export type CommitmentKind = 'fixed' | 'subscription' | 'daily';
+
+/** How much it hurts to drop it when money is short */
+export type Priority = 'essential' | 'important' | 'optional';
 
 export interface Commitment {
   id: ID;
@@ -99,6 +104,13 @@ export interface Commitment {
   accountId?: ID;
   categoryId?: ID;
   active: boolean;
+  priority?: Priority;
+  /** daily expenses: weekdays it applies to (0 = Sunday); empty = every day */
+  weekdays?: number[];
+  /** daily expenses: log automatically each day */
+  auto?: boolean;
+  /** daily expenses: last day already logged */
+  lastPosted?: string;
 }
 
 export type DebtKind = 'loan' | 'card' | 'bnpl' | 'person';

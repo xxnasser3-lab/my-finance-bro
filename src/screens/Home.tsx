@@ -1,5 +1,7 @@
 import { t, fmtDay, dayName } from '../i18n';
 import { useData, update } from '../store/store';
+import { cashflow, tips } from '../logic/advisor';
+import { TipCard } from '../components/TipCard';
 import { Avatar } from '../components/Avatar';
 import { Icon, Chev } from '../components/Icon';
 import { Money, fmt, Collapse, Bar } from '../components/ui';
@@ -30,6 +32,15 @@ export function Home() {
   const bonusSoon = s.bonus.enabled && s.bonus.amount > 0 && diffDays(t0, s.bonus.nextDate) >= 0 && diffDays(t0, s.bonus.nextDate) <= 35;
   const backupAge = s.lastBackupAt ? diffDays(s.lastBackupAt.slice(0, 10), t0) : null;
   const hide = s.hideAmounts;
+  const cf = cashflow(d);
+  const tipList = tips(d);
+  // what you can really spend: the living budget left, capped by cash left after bills
+  const cashCap = Math.max(0, cf.afterObligations);
+  const safeAvail = Math.min(bv.available, cashCap);
+  const safeToday = Math.min(bv.todayBudget, cashCap / Math.max(1, cyc.daysLeft));
+  const capped = cf.afterObligations < bv.available;
+  const autoToday = d.txs.filter((x) => x.auto && x.date === t0);
+  const undoAuto = () => update((x) => ({ ...x, txs: x.txs.filter((y) => !(y.auto && y.date === t0)) }));
 
   return (
     <div class="screen page-glow">
@@ -84,16 +95,45 @@ export function Home() {
           <span class="pill accent">{t('home.daysLeft', { n: cyc.daysLeft })}</span>
         </div>
         <div class="row-flex" style="align-items:baseline;gap:8px">
-          <span style="font-size:30px;line-height:1"><Money v={bv.available} decimals={2} class={'bold' + (bv.available < 0 ? ' neg' : '')} /></span>
+          <span style="font-size:30px;line-height:1"><Money v={safeAvail} decimals={2} class={'bold' + (safeAvail <= 0 ? ' neg' : '')} /></span>
           <span class="xs muted">{t('cur')}</span>
         </div>
-        <Bar pct={(bv.spentCycle / Math.max(1, bv.budget)) * 100} color={bv.spentCycle > bv.budget ? '#E5484D' : undefined} />
+        <Bar pct={(bv.spentCycle / Math.max(1, bv.budget)) * 100} color={bv.spentCycle > bv.budget || capped ? '#E5484D' : undefined} />
         <div class="grid3">
-          <div class="col gap4"><span class="xs muted">{t('home.todayBudget')}</span><Money v={bv.todayBudget} class="bold" /></div>
+          <div class="col gap4"><span class="xs muted">{t('home.todayBudget')}</span><Money v={safeToday} class="bold" /></div>
           <div class="col gap4"><span class="xs muted">{t('home.spentToday')}</span><Money v={bv.spentToday} class="bold" /></div>
           <div class="col gap4"><span class="xs muted">{t('home.spentCycle')}</span><Money v={bv.spentCycle} class="bold" /></div>
         </div>
+        {!hide && safeAvail > 0 && <span class="xs muted">{t('home.perDay', { v: fmt(safeAvail / Math.max(1, cyc.daysLeft)), n: cyc.daysLeft })}</span>}
+        {!hide && capped && <a href="#/advice" class="xs" style="color:#F2878A;line-height:1.6">{t('home.capped', { v: fmt(bv.available) })}</a>}
       </div>
+
+      {autoToday.length > 0 && (
+        <div class="card row-flex small" style="padding:10px 14px;gap:10px">
+          <Icon name="repeat" size={17} />
+          <span class="grow">{t('home.autoLogged', { label: autoToday.map((x) => x.note).join('، ') })} · <Money v={autoToday.reduce((a, x) => a + x.amount, 0)} class="semi" /></span>
+          <button class="link-btn" onClick={undoAuto}>{t('home.undoAuto')}</button>
+        </div>
+      )}
+
+      <a href="#/advice" class="card pad col gap10" style={{ color: 'var(--text)', borderColor: cf.result < 0 ? 'rgba(229,72,77,.35)' : undefined }}>
+        <div class="between">
+          <span class="h2">{t('home.untilPay')}</span>
+          <span class="row-flex xs semi" style="gap:4px;color:var(--accent-text)">{t('home.tips')}<Chev dir="fwd" size={14} /></span>
+        </div>
+        <div class="between" style="align-items:flex-end">
+          <div class="col gap4">
+            <span class="xs muted">{cf.result < 0 ? t('adv.shortfall') : t('adv.result')}</span>
+            <span style="font-size:22px"><Money v={Math.abs(cf.result)} class={'bold ' + (cf.result < 0 ? '' : 'pos')} /></span>
+          </div>
+          <span class="xs" style={{ color: cf.result < 0 ? '#F2878A' : 'var(--muted)', textAlign: 'end' }}>{hide ? '' : t('adv.perDay', { v: fmt(Math.abs(cf.result) / Math.max(1, cf.daysLeft)), n: cf.daysLeft })}</span>
+        </div>
+        <div class="grid2 xs muted">
+          <span>{t('adv.bills')}: <Money v={cf.obligationsTotal} class="text2 semi" /></span>
+          <span>{t('adv.living')}: <Money v={cf.livingLeft} class="text2 semi" /></span>
+        </div>
+      </a>
+      {tipList.filter((x) => x.kind !== 'deficit').slice(0, 3).map((tip) => <TipCard tip={tip} />)}
 
       <div class="grid4">
         {[

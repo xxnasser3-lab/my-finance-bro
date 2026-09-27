@@ -38,10 +38,11 @@ export function sampleData(lang: 'ar' | 'en'): AppData {
     { id: 'm-net', kind: 'fixed', name: ar ? 'الإنترنت' : 'Internet', amount: 230, dayOfMonth: 5, cycle: 'monthly', accountId: 'a-rajhi', categoryId: 'c-bills', active: true },
     { id: 'm-elec', kind: 'fixed', name: ar ? 'الكهرباء' : 'Electricity', amount: 350, variable: true, dayOfMonth: 15, cycle: 'monthly', accountId: 'a-rajhi', categoryId: 'c-bills', active: true },
     { id: 'm-mob', kind: 'fixed', name: ar ? 'الجوال' : 'Mobile', amount: 70, dayOfMonth: 20, cycle: 'monthly', accountId: 'a-rajhi', categoryId: 'c-bills', active: true },
-    { id: 'm-gym', kind: 'subscription', name: ar ? 'النادي الرياضي' : 'Gym', amount: 250, dayOfMonth: 1, cycle: 'monthly', accountId: 'a-rajhi', categoryId: 'c-subs', active: true },
+    { id: 'm-gym', kind: 'subscription', name: ar ? 'النادي الرياضي' : 'Gym', amount: 250, dayOfMonth: 1, cycle: 'monthly', accountId: 'a-rajhi', categoryId: 'c-subs', active: true, priority: 'important' },
     { id: 'm-nfx', kind: 'subscription', name: ar ? 'نتفليكس' : 'Netflix', amount: 45, dayOfMonth: 8, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true },
     { id: 'm-shd', kind: 'subscription', name: ar ? 'شاهد VIP' : 'Shahid VIP', amount: 30, dayOfMonth: 12, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true },
-    { id: 'm-icl', kind: 'subscription', name: ar ? 'آي كلاود' : 'iCloud', amount: 12, dayOfMonth: 18, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true },
+    { id: 'm-icl', kind: 'subscription', name: ar ? 'آي كلاود' : 'iCloud', amount: 12, dayOfMonth: 18, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true, priority: 'important' },
+    { id: 'm-smoke', kind: 'daily', name: ar ? 'دخان' : 'Cigarettes', amount: 23, dayOfMonth: 1, cycle: 'monthly', accountId: 'a-rajhi', categoryId: 'c-daily', active: true, auto: true, priority: 'optional', lastPosted: t },
     { id: 'm-spt', kind: 'subscription', name: ar ? 'سبوتيفاي' : 'Spotify', amount: 22, dayOfMonth: 22, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true },
     { id: 'm-ggl', kind: 'subscription', name: ar ? 'جوجل ون' : 'Google One', amount: 8, dayOfMonth: 25, cycle: 'monthly', accountId: 'a-plat', categoryId: 'c-subs', active: true }
   ];
@@ -93,6 +94,10 @@ export function sampleData(lang: 'ar' | 'en'): AppData {
     }
     if (dd === 20 && day < t) tx({ type: 'expense', amount: 520, date: day, categoryId: 'c-debtpay', accountId: 'a-rajhi', debtId: 'd-tas' });
     for (const c of d.commitments) {
+      if (c.kind === 'daily') {
+        tx({ type: 'expense', amount: c.amount, date: day, time: '09:00', categoryId: c.categoryId, accountId: c.accountId, commitmentId: c.id, note: c.name, auto: true });
+        continue;
+      }
       if (dd === c.dayOfMonth && day < t) tx({ type: 'expense', amount: c.variable ? Math.round(c.amount * (0.8 + rnd() * 0.4)) : c.amount, date: day, categoryId: c.categoryId, accountId: c.accountId, commitmentId: c.id });
     }
   }
