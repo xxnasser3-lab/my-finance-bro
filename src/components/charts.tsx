@@ -16,9 +16,10 @@ function useWidth<T extends HTMLElement>(): [preact.RefObject<T>, number] {
 
 export function short(v: number): string {
   const a = Math.abs(v);
-  if (a >= 1000000) return (v / 1000000).toFixed(a >= 10000000 ? 0 : 1).replace(/\.0$/, '') + 'm';
-  if (a >= 1000) return (v / 1000).toFixed(a >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'k';
-  return String(Math.round(v));
+  const sign = v < 0 ? '−' : '';
+  if (a >= 1000000) return sign + (a / 1000000).toFixed(a >= 10000000 ? 0 : 1).replace(/\.0$/, '') + 'm';
+  if (a >= 1000) return sign + (a / 1000).toFixed(a >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'k';
+  return sign + String(Math.round(a));
 }
 
 function niceMax(v: number): number {
@@ -57,9 +58,18 @@ export function LineChart({
   const axisW = 30;
   const pw = w - axisW;
   const all = series.flatMap((s) => s.values.filter((v): v is number => v !== null));
-  const max = niceMax(yMax ?? Math.max(1, ...all));
+  // Scale covers negatives too (e.g. an overdrawn balance), with 0 as the fill baseline.
+  const rawMin = Math.min(0, ...all);
+  const rawMax = yMax ?? Math.max(1, ...all);
+  const step = niceMax((rawMax - rawMin) / 4);
+  const lo = rawMin < 0 ? Math.floor(rawMin / step) * step : 0;
+  const max = Math.max(lo + step, Math.ceil(rawMax / step) * step);
+  const span = max - lo;
+  const ticks: number[] = [];
+  for (let v = lo; v <= max + step / 1000; v += step) ticks.push(v);
   const x = (i: number) => (count <= 1 ? 0 : (i / (count - 1)) * pw);
-  const y = (v: number) => height - (v / max) * height;
+  const y = (v: number) => height - ((Math.max(lo, Math.min(max, v)) - lo) / span) * height;
+  const base = y(0);
   const path = (vals: (number | null)[]) => {
     let d = '';
     let pen = false;
@@ -82,15 +92,16 @@ export function LineChart({
   return (
     <div class="chart" ref={ref} style={{ height: height + 26 + 'px' }}>
       <svg width={pw} height={height} style="position:absolute;left:0;top:0;overflow:visible">
-        {[0, 0.25, 0.5, 0.75, 1].map((f) => (
-          <line x1="0" x2={pw} y1={height * f} y2={height * f} stroke={f === 1 ? '#2E241D' : '#1F1814'} />
+        {ticks.map((v) => (
+          <line x1="0" x2={pw} y1={y(v)} y2={y(v)} stroke="#1F1814" />
         ))}
+        <line x1="0" x2={pw} y1={base} y2={base} stroke="#3A2E25" />
         {hi !== null && <line x1={x(hi)} x2={x(hi)} y1="0" y2={height} stroke="#5A4A3F" stroke-dasharray="3 3" />}
         {series.map((s) => {
           if (!s.fill) return null;
           const idx = s.values.map((v, i) => (v === null ? -1 : i)).filter((i) => i >= 0);
           if (!idx.length) return null;
-          return <path d={path(s.values) + `L${x(idx[idx.length - 1])} ${height} L${x(idx[0])} ${height} Z`} fill={s.color} opacity="0.15" />;
+          return <path d={path(s.values) + `L${x(idx[idx.length - 1])} ${base} L${x(idx[0])} ${base} Z`} fill={s.color} opacity="0.15" />;
         })}
         {series.map((s) => (
           <path d={path(s.values)} fill="none" stroke={s.color} stroke-width={s.width ?? 2} stroke-dasharray={s.dash} stroke-linejoin="round" stroke-linecap="round" opacity={s.opacity ?? 1} />
@@ -103,12 +114,10 @@ export function LineChart({
           )}
       </svg>
       <div style={{ position: 'absolute', left: 0, top: 0, width: pw + 'px', height: height + 'px' }} onPointerMove={onMove} onPointerDown={onMove} />
-      <div class="axis" style={{ position: 'absolute', right: 0, top: '-6px', height: height + 12 + 'px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        {[1, 0.75, 0.5, 0.25, 0].map((f) => (
-          <span class="n">{short(max * f)}</span>
-        ))}
-      </div>
-      <div class="axis" style={{ position: 'absolute', left: 0, top: height + 8 + 'px', width: pw + 'px', display: 'flex', justifyContent: 'space-between' }}>
+      {ticks.map((v) => (
+        <span class="axis n" style={{ position: 'absolute', right: 0, top: y(v) - 7 + 'px', lineHeight: '14px' }}>{short(v)}</span>
+      ))}
+      <div class="axis" style={{ position: 'absolute', left: 0, top: height + 8 + 'px', width: pw + 'px', display: 'flex', justifyContent: 'space-between', overflow: 'hidden', whiteSpace: 'nowrap', gap: '4px' }}>
         {xLabels.map((l) => (
           <span>{l}</span>
         ))}

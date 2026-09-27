@@ -1,7 +1,7 @@
 import type { Account, AppData, Tx } from './types';
 import { emptyData } from './seed';
 import { addDays, addMonths, clampDay, parseISO, salaryCycle, today } from '../logic/dates';
-import { balance } from '../logic/finance';
+import { balance, debtRemaining } from '../logic/finance';
 
 /** Realistic demo data relative to today, so every screen has something to show. */
 export function sampleData(lang: 'ar' | 'en'): AppData {
@@ -87,6 +87,11 @@ export function sampleData(lang: 'ar' | 'en'): AppData {
     if (day === clampDay(pd.getFullYear(), pd.getMonth(), 27)) {
       tx({ type: 'income', amount: 14000, date: day, time: '06:00', categoryId: 'i-salary', accountId: 'a-rajhi' });
     }
+    if (day === clampDay(pd.getFullYear(), pd.getMonth(), 27)) {
+      tx({ type: 'expense', amount: 1850, date: day, time: '07:00', categoryId: 'c-debtpay', accountId: 'a-rajhi', debtId: 'd-loan' });
+      tx({ type: 'transfer', amount: 2400, date: day, time: '07:10', accountId: 'a-rajhi', toAccountId: 'a-plat' });
+    }
+    if (dd === 20 && day < t) tx({ type: 'expense', amount: 520, date: day, categoryId: 'c-debtpay', accountId: 'a-rajhi', debtId: 'd-tas' });
     for (const c of d.commitments) {
       if (dd === c.dayOfMonth && day < t) tx({ type: 'expense', amount: c.variable ? Math.round(c.amount * (0.8 + rnd() * 0.4)) : c.amount, date: day, categoryId: c.categoryId, accountId: c.accountId, commitmentId: c.id });
     }
@@ -112,6 +117,11 @@ export function sampleData(lang: 'ar' | 'en'): AppData {
   for (const a of d.accounts) {
     a.opening = 0;
     a.opening = Math.round(target[a.id] - balance(d, a));
+  }
+  // Keep today's remaining debt amounts after adding the payment history
+  for (const debt of d.debts) {
+    const target = debt.opening;
+    debt.opening = target + (target - debtRemaining(d, debt));
   }
   d.txs.sort((a, b) => (a.date + (a.time ?? '')).localeCompare(b.date + (b.time ?? '')));
   return d;
