@@ -2,9 +2,9 @@ import { useState } from 'preact/hooks';
 import { t, fmtDay } from '../i18n';
 import { getData, update, uid, upsert } from '../store/store';
 import { txEffect, round2 } from '../logic/finance';
-import type { Account, Debt, InstallmentPlan, Tx } from '../store/types';
-import { Icon } from '../components/Icon';
-import { TopBar, Field, Money, toast, Collapse, catName } from '../components/ui';
+import type { Account, CreditPolicy, Debt, InstallmentPlan, Tx } from '../store/types';
+import { Icon, Chev } from '../components/Icon';
+import { TopBar, Field, Money, NumInput, toast, Collapse, catName } from '../components/ui';
 import {
   loadPdfPages, parseAlRajhiCardStatement, toAccountPatch, toInstallmentPlans, toTxProposals,
   type ParsedCardStatement, type TxProposal
@@ -36,6 +36,12 @@ export function ImportStatement() {
   const [done, setDone] = useState(false);
   const [quickLoans, setQuickLoans] = useState<(Debt & { include: boolean })[]>([]);
   const [quickCards, setQuickCards] = useState<(Account & { include: boolean })[]>([]);
+  // rate/fees aren't printed on a statement (they're card-terms, not transaction data) —
+  // ask for them once when creating a brand-new account from an import
+  const [policy, setPolicy] = useState<Omit<CreditPolicy, 'limit' | 'cashLimit'>>({
+    monthlyRate: 2.25, minPercent: 5, minAmount: 100, statementDay: 1, dueDays: 24, lateFee: 100
+  });
+  const setPolicyField = (patchP: Partial<CreditPolicy>) => setPolicy((p) => ({ ...p, ...patchP }));
 
   const creditAccounts = d.accounts.filter((a) => a.kind === 'credit' && !a.archived);
   const liquidAccounts = d.accounts.filter((a) => a.kind !== 'credit' && !a.archived);
@@ -193,7 +199,7 @@ export function ImportStatement() {
       acc = {
         id: accId, kind: 'credit', name: newName.trim() || patch.cardNameGuess, bank: 'Al Rajhi', network: patch.network, skin: 0,
         last4: patch.last4, opening: 0, secrets: {},
-        credit: { limit: patch.credit.limit, cashLimit: patch.credit.cashLimit, monthlyRate: 2.25, minPercent: 5, minAmount: 100, statementDay: 1, dueDays: 24 },
+        credit: { ...policy, limit: patch.credit.limit, cashLimit: patch.credit.cashLimit },
         createdAt: new Date().toISOString()
       };
     }
@@ -257,6 +263,32 @@ export function ImportStatement() {
         {targetId === 'new' && <Field label={t('name')}><input class="input" value={newName} onInput={(e) => setNewName((e.target as HTMLInputElement).value)} /></Field>}
         {target && <span class="xs faint" style="line-height:1.6">{t('imp.existingNote')}</span>}
       </div>
+
+      {targetId === 'new' && (
+        <div class="card pad col gap12">
+          <span class="semi">{t('acc.policy')}</span>
+          <span class="xs faint" style="line-height:1.6">{t('imp.policyNote')}</span>
+          <div class="grid2">
+            <Field label={t('acc.rate')}><NumInput value={policy.monthlyRate} onInput={(v) => setPolicyField({ monthlyRate: v || 0 })} /></Field>
+            <Field label={t('acc.minPct')}><NumInput value={policy.minPercent} onInput={(v) => setPolicyField({ minPercent: v || 0 })} /></Field>
+            <Field label={t('acc.minAmt')}><NumInput value={policy.minAmount} onInput={(v) => setPolicyField({ minAmount: v || 0 })} /></Field>
+            <Field label={t('acc.statementDay')}><NumInput value={policy.statementDay} onInput={(v) => setPolicyField({ statementDay: Math.min(31, Math.max(1, Math.round(v || 1))) })} /></Field>
+            <Field label={t('acc.dueDays')}><NumInput value={policy.dueDays} onInput={(v) => setPolicyField({ dueDays: Math.max(0, Math.round(v || 0)) })} /></Field>
+            <Field label={t('acc.lateFee')}><NumInput value={policy.lateFee} onInput={(v) => setPolicyField({ lateFee: v })} /></Field>
+          </div>
+          <details>
+            <summary><span class="sum-title small">{t('acc.policyMore')}</span><Chev dir="down" /></summary>
+            <div class="col gap12">
+              <div class="grid2">
+                <Field label={t('acc.cashback')}><input class="input" value={policy.cashback ?? ''} onInput={(e) => setPolicyField({ cashback: (e.target as HTMLInputElement).value })} /></Field>
+                <Field label={t('acc.cashFee')}><input class="input" value={policy.cashFee ?? ''} onInput={(e) => setPolicyField({ cashFee: (e.target as HTMLInputElement).value })} /></Field>
+              </div>
+              <Field label={t('acc.annualFee')}><input class="input" value={policy.annualFee ?? ''} onInput={(e) => setPolicyField({ annualFee: (e.target as HTMLInputElement).value })} /></Field>
+              <Field label={t('acc.grace')}><input class="input" value={policy.graceNote ?? ''} onInput={(e) => setPolicyField({ graceNote: (e.target as HTMLInputElement).value })} /></Field>
+            </div>
+          </details>
+        </div>
+      )}
 
       {paymentsNeedFunding && (
         <div class="card pad col gap10" style="border-color:var(--accent-line)">
