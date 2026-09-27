@@ -133,7 +133,8 @@ export function cardStatement(d: AppData, acc: Account, on = today()): Statement
   let st = clampDay(y, m - 1, p.statementDay);
   if (dd < p.statementDay) st = addMonths(st, -1, p.statementDay);
   const statementBalance = Math.max(0, balanceAt(d, acc, st));
-  const minimum = statementBalance <= 0 ? 0 : Math.min(statementBalance, Math.max((statementBalance * p.minPercent) / 100, p.minAmount));
+  const locked = cardLocked(acc);
+  const minimum = statementBalance <= 0 ? 0 : Math.min(statementBalance, cardMin(acc, Math.max(0, statementBalance - locked)) + cardLockedDue(acc));
   let paidSince = 0;
   let newSince = 0;
   for (const tx of d.txs) {
