@@ -147,7 +147,8 @@ export function Plan() {
           <div style="padding:14px 0 6px" class="h2">{t('plan.order')}</div>
           {cur.order.map((id, i) => {
             const x = debts.find((y) => y.id === id)!;
-            const href = x.kind === 'card' ? '/account/' + id : '/debt/' + id;
+            const baseId = id.split('#plan:')[0];
+            const href = x.kind === 'card' ? '/account/' + baseId : '/debt/' + id;
             return (
               <a class="row" href={'#' + href}>
                 <span class="n" style={{ width: '26px', height: '26px', borderRadius: '8px', background: i === 0 ? 'var(--accent)' : 'var(--surface-3)', color: i === 0 ? '#fff' : 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800, flexShrink: 0 }}>{i + 1}</span>

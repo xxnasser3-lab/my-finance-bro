@@ -41,8 +41,16 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // pdf.js (statement import) is large and rarely used — don't make every install
+        // download it; fetch it lazily on first use and cache it after that instead.
+        globIgnores: ['**/pdf-*.js', '**/pdf.worker*.mjs'],
         navigateFallback: 'index.html',
         runtimeCaching: [
+          {
+            urlPattern: /\/assets\/pdf(\.worker)?[\w.-]*\.(m?js)$/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'pdfjs', expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 365 } }
+          },
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
             handler: 'CacheFirst',

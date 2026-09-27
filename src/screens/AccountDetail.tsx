@@ -7,7 +7,7 @@ import { Money, TopBar, Collapse, copyText, fmt, Empty } from '../components/ui'
 import { CardViz } from '../components/CardViz';
 import { Gauge } from '../components/charts';
 import { TxRow } from '../components/TxRow';
-import { balance, cardPayoff, cardStatement, simulate } from '../logic/finance';
+import { balance, cardPayoff, cardRevolving, cardStatement, round2, simulate } from '../logic/finance';
 import { navigate } from '../router';
 import { openTx } from '../sheets';
 import { verifyUser } from '../store/vault';
@@ -77,19 +77,21 @@ export function AccountDetail({ id }: { id: string }) {
   const [pick, setPick] = useState<'min' | 'plan' | 'full'>('plan');
   if (!acc) return <div class="screen no-nav"><TopBar back title="" fallback="/wallet" /><Empty /></div>;
   const bal = balance(d, acc);
+  const revolving = acc.kind === 'credit' ? cardRevolving(d, acc) : bal;
   const txs = d.txs.filter((x) => x.accountId === id || x.toAccountId === id).sort((a, b) => (b.date + (b.time ?? '')).localeCompare(a.date + (a.time ?? ''))).slice(0, 30);
   const credit = acc.kind === 'credit' && acc.credit;
   const st = credit ? cardStatement(d, acc) : undefined;
   const plan = credit ? simulate(d, d.settings.strategy) : undefined;
   const planPay = plan?.firstMonth.perDebt[acc.id] ?? 0;
   const subs = d.commitments.filter((c) => c.active && c.accountId === acc.id && c.kind === 'subscription');
+  const activePlans = (acc.installmentPlans ?? []).filter((pl) => !pl.archived && pl.totalInstallments - pl.paidInstallments > 0);
   const options = credit
     ? ([
         ['min', t('acc.payMin'), 'min' as const, st?.minimum ?? 0],
         ['plan', t('acc.payPlan'), Math.max(planPay, 1), planPay],
         ['full', t('acc.payFull'), bal, bal]
       ] as const).map(([key, label, pay, show]) => {
-        const r = key === 'full' ? { months: bal > 0 ? 1 : 0, interest: 0 } : cardPayoff(acc, bal, pay);
+        const r = key === 'full' ? { months: bal > 0 ? 1 : 0, interest: 0 } : cardPayoff(acc, revolving, pay);
         return { key, label, show, ...r };
       })
     : [];
@@ -152,6 +154,23 @@ export function AccountDetail({ id }: { id: string }) {
               <span class="h2">{t('rate.qCard')}</span>
               <RateVerdict kind="card" apr={p.monthlyRate * 12} balance={bal > 0 ? bal : undefined} payment={bal > 0 ? Math.max(planPay, st.minimum) : undefined} />
             </div>
+          )}
+          {activePlans.length > 0 && (
+            <Collapse title={t('acc.plans')} right={<span class="xs faint n">{activePlans.length}</span>}>
+              {activePlans.map((pl) => (
+                <div class="row small" style="align-items:flex-start;padding:11px 0">
+                  <span class="grow col gap4">
+                    <span class="semi ellipsis">{pl.merchant || t('imp.plan')}</span>
+                    <span class="xs faint">{t('imp.paidOf', { p: pl.paidInstallments, t: pl.totalInstallments })}{pl.hasMurabaha ? ' · ' + t('imp.hasMurabaha') : ''}</span>
+                    {pl.nextDueDate && <span class="xs faint">{t('acc.planNext')}: {fmtDay(pl.nextDueDate)}</span>}
+                  </span>
+                  <span class="col gap4" style="align-items:flex-end">
+                    <span class="xs muted">{t('acc.planRemaining')}</span>
+                    <Money v={round2(pl.installmentAmount * (pl.totalInstallments - pl.paidInstallments))} class="bold" />
+                  </span>
+                </div>
+              ))}
+            </Collapse>
           )}
         </>
       )}

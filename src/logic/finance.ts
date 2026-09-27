@@ -3,7 +3,7 @@ import { addDays, addMonths, clampDay, diffDays, inRange, monthKey, parseISO, sa
 
 // ---------------- accounts ----------------
 
-function txEffect(acc: Account, tx: Tx): number {
+export function txEffect(acc: Account, tx: Tx): number {
   const credit = acc.kind === 'credit';
   let v = 0;
   if (tx.type === 'expense' && tx.accountId === acc.id) v -= tx.amount;
@@ -148,6 +148,25 @@ export function cardMin(acc: Account, bal: number): number {
   const p = acc.credit;
   if (!p || bal <= 0) return 0;
   return Math.min(bal, Math.max((bal * p.minPercent) / 100, p.minAmount));
+}
+
+/** Money still owed on this card's installment (Tasaheel-style) plans — already part of
+ *  the card's own balance, not a separate debt. Paid down on its own fixed schedule, so
+ *  it's kept apart from the revolving balance for payoff planning (see planDebts). */
+export function cardLocked(acc: Account): number {
+  return round2((acc.installmentPlans ?? []).filter((p) => !p.archived).reduce((s, p) => s + Math.max(0, p.installmentAmount * (p.totalInstallments - p.paidInstallments)), 0));
+}
+
+/** The part of a card's balance that behaves like ordinary revolving debt. */
+export function cardRevolving(d: AppData, acc: Account): number {
+  return round2(Math.max(0, balance(d, acc) - cardLocked(acc)));
+}
+
+/** This cycle's required payment toward locked installment plans (their fixed amount,
+ *  for any plan not yet fully paid — a rough stand-in for not tracking each plan's exact
+ *  next due date). */
+export function cardLockedDue(acc: Account): number {
+  return round2((acc.installmentPlans ?? []).filter((p) => !p.archived && p.totalInstallments - p.paidInstallments > 0).reduce((s, p) => s + p.installmentAmount, 0));
 }
 
 /** Pay a card down with a fixed payment (or the minimum when `payment` is 'min'). */
@@ -398,12 +417,48 @@ export interface PlanResult {
   order: ID[];
 }
 
+/** A card's own installment plan, as its own fixed-schedule slice of `planDebts`. Its id
+ *  is the card's id plus a suffix — `mergeLockedPayments` folds its payment back into the
+ *  card's own id afterward, so callers keyed by account id still see the full picture. */
+const planPartId = (accId: ID, planId: ID) => `${accId}#plan:${planId}`;
+
+/** After a simulation month, add each installment-plan slice's payment back onto its
+ *  card's own id, so `perDebt[account.id]` is still the full recommended payment. */
+function mergeLockedPayments(perDebt: Record<ID, number>): void {
+  for (const key of Object.keys(perDebt)) {
+    const i = key.indexOf('#plan:');
+    if (i === -1) continue;
+    const baseId = key.slice(0, i);
+    perDebt[baseId] = round2((perDebt[baseId] ?? 0) + perDebt[key]);
+  }
+}
+
 export function planDebts(d: AppData): PlanDebt[] {
   const list: PlanDebt[] = [];
   for (const acc of creditAccounts(d)) {
     const bal = balance(d, acc);
     if (bal <= 0) continue;
-    list.push({ id: acc.id, name: acc.name, kind: 'card', balance: bal, rate: (acc.credit?.monthlyRate ?? 0) / 100, accrues: true, min: (b) => cardMin(acc, b), noExtra: false });
+    for (const p of acc.installmentPlans ?? []) {
+      if (p.archived) continue;
+      const remaining = round2(p.installmentAmount * (p.totalInstallments - p.paidInstallments));
+      if (remaining <= 0.5) continue;
+      list.push({
+        id: planPartId(acc.id, p.id),
+        name: acc.name + ' · ' + p.merchant,
+        kind: 'card',
+        balance: remaining,
+        rate: 0,
+        // its profit (if any) is a fixed cost already baked into the installment amount,
+        // not something that grows the longer it's left — and it can't be extra-paid away.
+        accrues: false,
+        min: (b) => Math.min(b, p.installmentAmount),
+        noExtra: true
+      });
+    }
+    const revolving = round2(bal - cardLocked(acc));
+    if (revolving > 0.5) {
+      list.push({ id: acc.id, name: acc.name, kind: 'card', balance: revolving, rate: (acc.credit?.monthlyRate ?? 0) / 100, accrues: true, min: (b) => cardMin(acc, b), noExtra: false });
+    }
   }
   for (const debt of oweDebts(d)) {
     const bal = debtRemaining(d, debt);
@@ -496,7 +551,10 @@ export function simulate(d: AppData, strategy: 'avalanche' | 'snowball', livingO
       pool -= pay;
       perDebt[x.id] = (perDebt[x.id] ?? 0) + pay;
     }
-    if (m === 1) firstMonth = { fixed, mins, living, save, extra: Math.max(0, surplus - save), salary: s.salary, perDebt };
+    if (m === 1) {
+      mergeLockedPayments(perDebt);
+      firstMonth = { fixed, mins, living, save, extra: Math.max(0, surplus - save), salary: s.salary, perDebt };
+    }
     for (const x of active) if (x.balance <= 0.5 && payoff[x.id] === undefined) payoff[x.id] = m;
     totals.push(round2(debts.reduce((a, x) => a + Math.max(0, x.balance), 0)));
   }

@@ -11,6 +11,7 @@
     "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
+    "pdfjs-dist": "^6.3.289",
     "preact": "^10.29.8"
   },
   "devDependencies": {

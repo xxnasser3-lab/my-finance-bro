@@ -3,7 +3,7 @@
 // (average living spend over the last few cycles).
 import type { AppData, Debt, ID } from '../store/types';
 import {
-  balance, cardMin, commitmentDueIn, creditAccounts, dailyCount, debtRemaining, isLiving, nextInstallmentDate, oweDebts, rootCat, round2, tripSpent
+  cardLockedDue, cardMin, cardRevolving, commitmentDueIn, creditAccounts, dailyCount, debtRemaining, isLiving, nextInstallmentDate, oweDebts, rootCat, round2, tripSpent
 } from './finance';
 import { addDays, addMonths, inRange, parseISO, salaryCycle, today, type Cycle } from './dates';
 
@@ -120,14 +120,15 @@ export function forecastNext(d: AppData): Forecast {
     }
   }
 
-  // credit cards: at least the minimum on what's owed now
+  // credit cards: at least the minimum on the revolving part, plus any locked
+  // installment (Tasaheel-style) plans' fixed payments, due whatever's owed now
   let cards = 0;
   for (const acc of creditAccounts(d)) {
-    const min = cardMin(acc, balance(d, acc));
+    const min = round2(cardMin(acc, cardRevolving(d, acc)) + cardLockedDue(acc));
     if (min <= 0) continue;
     cards += min;
     const due = acc.credit ? addDays(addMonths(start, 0, acc.credit.statementDay), acc.credit.dueDays) : start;
-    bills.push({ label: acc.name, amount: round2(min), date: inRange(due, start, end) ? due : start, kind: 'card', refId: acc.id });
+    bills.push({ label: acc.name, amount: min, date: inRange(due, start, end) ? due : start, kind: 'card', refId: acc.id });
   }
 
   // trips planned to start in the cycle

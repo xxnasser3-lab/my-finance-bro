@@ -16,6 +16,8 @@ export interface CardSecrets {
 
 export interface CreditPolicy {
   limit: number;
+  /** separate cash-withdrawal sub-limit, usually well under `limit` */
+  cashLimit?: number;
   /** profit/interest rate per month, in percent (e.g. 2.25) */
   monthlyRate: number;
   minPercent: number;
@@ -24,9 +26,36 @@ export interface CreditPolicy {
   dueDays: number;
   lateFee?: number;
   cashFee?: string;
+  /** foreign-currency purchase markup, in percent (e.g. 2 for a typical 2% + VAT) */
+  fxFeePercent?: number;
   annualFee?: string;
   cashback?: string;
   graceNote?: string;
+}
+
+/**
+ * A "convert to installments" plan on a credit card (e.g. Al Rajhi's "Tasaheel"):
+ * restructures spend the card already counted into a fixed monthly schedule. The
+ * principal is NOT a separate debt — it was already part of the card's own balance
+ * when purchased — so this is display/schedule info only, read by the payoff planner
+ * to treat this slice of the balance as fixed instead of revolving (see finance.ts).
+ */
+export interface InstallmentPlan {
+  id: ID;
+  merchant: string;
+  /** original purchase date, if known */
+  purchaseDate?: string;
+  /** original amount converted */
+  principal: number;
+  installmentAmount: number;
+  /** one-time fee charged for the conversion itself, if any */
+  conversionFee?: number;
+  totalInstallments: number;
+  paidInstallments: number;
+  /** whether monthly murabaha profit applies (typically true when totalInstallments > 3) */
+  hasMurabaha: boolean;
+  nextDueDate?: string;
+  archived?: boolean;
 }
 
 export interface Account {
@@ -41,6 +70,7 @@ export interface Account {
   opening: number;
   secrets: CardSecrets;
   credit?: CreditPolicy;
+  installmentPlans?: InstallmentPlan[];
   /** optional photo of the card (data URL, resized) */
   photo?: string;
   archived?: boolean;

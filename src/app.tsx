@@ -29,6 +29,7 @@ import { InvestmentDetail } from './screens/InvestmentDetail';
 import { InvestmentForm } from './screens/InvestmentForm';
 import { Goals } from './screens/Goals';
 import { RateCheck } from './screens/RateCheck';
+import { ImportStatement } from './screens/ImportStatement';
 import { Market } from './screens/Market';
 import { Stock } from './screens/Stock';
 import { Wishlist } from './screens/Wishlist';
@@ -90,6 +91,7 @@ function Main({ onLock }: { onLock: () => void }) {
   else if (a === 'market') screen = <Market />;
   else if (a === 'stock') screen = <Stock key={b} sym={b} />;
   else if (a === 'rate-check') screen = <RateCheck />;
+  else if (a === 'import') screen = <ImportStatement />;
   else if (a === 'goals') screen = <Goals />;
   else if (a === 'wishlist') screen = <Wishlist />;
   else if (a === 'forecast') screen = <Forecast />;
