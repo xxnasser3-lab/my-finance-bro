@@ -45,7 +45,7 @@ function Main({ onLock }: { onLock: () => void }) {
   const [a, b, c] = r;
   if (!a) { screen = <Home />; tab = 'home'; }
   else if (a === 'wallet') { screen = <Wallet />; tab = 'wallet'; }
-  else if (a === 'account' && b === 'new') screen = <AccountForm key="new" />;
+  else if (a === 'account' && b === 'new') screen = <AccountForm key={'new' + (c ?? '')} kind={c === 'credit' ? 'credit' : undefined} />;
   else if (a === 'account' && c === 'edit') screen = <AccountForm key={b} id={b} />;
   else if (a === 'account') screen = <AccountDetail id={b} />;
   else if (a === 'txs') screen = <Transactions />;

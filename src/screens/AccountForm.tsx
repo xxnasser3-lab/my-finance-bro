@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { t, getLang } from '../i18n';
 import { getData, uid, update, upsert } from '../store/store';
 import type { Account, AccountKind, CreditPolicy } from '../store/types';
-import { Icon } from '../components/Icon';
+import { Icon, Chev } from '../components/Icon';
 import { TopBar, Seg, Field, NumInput, toast, confirmDo } from '../components/ui';
 import { CardViz, SKINS, NETWORKS, BANKS_AR, BANKS_EN } from '../components/CardViz';
 import { readImage, pickFile } from '../components/image';
@@ -11,14 +11,15 @@ import { balance } from '../logic/finance';
 
 const defaultPolicy: CreditPolicy = { limit: 10000, monthlyRate: 2.25, minPercent: 5, minAmount: 300, statementDay: 15, dueDays: 25, lateFee: 100 };
 
-export function AccountForm({ id }: { id?: string }) {
+export function AccountForm({ id, kind }: { id?: string; kind?: AccountKind }) {
   const d = getData();
   const existing = id ? d.accounts.find((a) => a.id === id) : undefined;
   const [a, setA] = useState<Account>(
     existing
       ? structuredClone(existing)
-      : { id: uid(), kind: 'bank', name: '', network: 'mada', skin: 1, opening: 0, secrets: {}, createdAt: new Date().toISOString() }
+      : { id: uid(), kind: kind ?? 'bank', name: '', network: kind === 'credit' ? 'visa' : 'mada', skin: kind === 'credit' ? 0 : 1, opening: 0, secrets: {}, credit: kind === 'credit' ? defaultPolicy : undefined, createdAt: new Date().toISOString() }
   );
+  const hasSecrets = !!existing && Object.values(existing.secrets).some(Boolean);
   // editing: show the current balance, and shift `opening` by the difference on save
   const current = existing ? balance(d, existing) : a.opening;
   const [bal, setBal] = useState<number>(current);
@@ -50,7 +51,7 @@ export function AccountForm({ id }: { id?: string }) {
   };
 
   const p = a.credit ?? defaultPolicy;
-  const kinds: [AccountKind, string][] = [['bank', t('kind.bank')], ['credit', t('kind.credit')], ['wallet', t('kind.wallet')], ['cash', t('kind.cash')]];
+  const kinds: [AccountKind, string][] = [['bank', t('kindS.bank')], ['credit', t('kindS.credit')], ['wallet', t('kindS.wallet')], ['cash', t('kind.cash')]];
 
   return (
     <div class="screen no-nav">
@@ -104,8 +105,16 @@ export function AccountForm({ id }: { id?: string }) {
         </Field>
       </div>
 
-      <div class="card pad col gap12">
-        <span class="semi">{t('acc.secrets')}</span>
+      {/* Card numbers are optional: collapsed unless already filled in */}
+      <details class="card pad-x" open={hasSecrets}>
+        <summary>
+          <span class="sum-title col gap4">
+            <span>{t('acc.secretsOpt')}</span>
+            <span class="xs faint" style="font-weight:400;line-height:1.6">{t('acc.secretsWhy')}</span>
+          </span>
+          <Chev dir="down" />
+        </summary>
+        <div class="col gap12" style="padding-bottom:16px">
         <Field label={t('acc.holder')}><input class="input" dir="ltr" autoComplete="off" value={a.secrets.holder ?? ''} onInput={(e) => setSecret('holder', (e.target as HTMLInputElement).value)} /></Field>
         {a.kind !== 'cash' && (
           <>
@@ -120,7 +129,8 @@ export function AccountForm({ id }: { id?: string }) {
         )}
         <Field label={t('note')}><input class="input" value={a.secrets.notes ?? ''} onInput={(e) => setSecret('notes', (e.target as HTMLInputElement).value)} /></Field>
         <span class="xs faint" style="line-height:1.7">{t('acc.secureNote')}</span>
-      </div>
+        </div>
+      </details>
 
       {a.kind === 'credit' && (
         <div class="card pad col gap12">
@@ -132,12 +142,20 @@ export function AccountForm({ id }: { id?: string }) {
             <Field label={t('acc.minAmt')}><NumInput value={p.minAmount} onInput={(v) => setPolicy({ minAmount: v || 0 })} /></Field>
             <Field label={t('acc.statementDay')}><NumInput value={p.statementDay} onInput={(v) => setPolicy({ statementDay: Math.min(31, Math.max(1, Math.round(v || 1))) })} /></Field>
             <Field label={t('acc.dueDays')}><NumInput value={p.dueDays} onInput={(v) => setPolicy({ dueDays: Math.max(0, Math.round(v || 0)) })} /></Field>
+          </div>
+          <span class="xs faint" style="line-height:1.6">{t('acc.policyHint')}</span>
+          <details>
+            <summary><span class="sum-title small">{t('acc.policyMore')}</span><Chev dir="down" /></summary>
+            <div class="col gap12">
+          <div class="grid2">
             <Field label={t('acc.lateFee')}><NumInput value={p.lateFee} onInput={(v) => setPolicy({ lateFee: v })} /></Field>
             <Field label={t('acc.cashback')}><input class="input" value={p.cashback ?? ''} onInput={(e) => setPolicy({ cashback: (e.target as HTMLInputElement).value })} /></Field>
           </div>
           <Field label={t('acc.cashFee')}><input class="input" value={p.cashFee ?? ''} onInput={(e) => setPolicy({ cashFee: (e.target as HTMLInputElement).value })} /></Field>
           <Field label={t('acc.annualFee')}><input class="input" value={p.annualFee ?? ''} onInput={(e) => setPolicy({ annualFee: (e.target as HTMLInputElement).value })} /></Field>
           <Field label={t('acc.grace')}><input class="input" value={p.graceNote ?? ''} onInput={(e) => setPolicy({ graceNote: (e.target as HTMLInputElement).value })} /></Field>
+            </div>
+          </details>
         </div>
       )}
 

@@ -36,7 +36,7 @@ export function DebtForm({ id, preset }: { id?: string; preset?: string }) {
   const setPerson = (p: Partial<NonNullable<Debt['person']>>) => setX((v) => ({ ...v, person: { avatar: 'ghutra', direction: 'owe', ...v.person, ...p } }));
 
   const onKind = (k: DebtKind | 'card') => {
-    if (k === 'card') return navigate('/account/new');
+    if (k === 'card') return navigate('/account/new/credit');
     set({ kind: k, installmentsTotal: k === 'bnpl' ? 4 : k === 'loan' ? 60 : undefined });
   };
 
