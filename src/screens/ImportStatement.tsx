@@ -53,7 +53,20 @@ export function ImportStatement() {
     const isJson = f.type === 'application/json' || f.name.toLowerCase().endsWith('.json');
     try {
       if (isJson) {
-        const result = parseQuickImport(await f.text());
+        const raw = JSON.parse(await f.text());
+        // a full statement someone already parsed for you (same shape the PDF parser
+        // produces, optionally with a `policy` block) — reuse the exact same review flow
+        if (raw && raw.bank === 'alrajhi' && Array.isArray(raw.transactions) && raw.card) {
+          const { policy: rawPolicy, ...parsed } = raw as ParsedCardStatement & { policy?: Partial<CreditPolicy> };
+          setStage({ parsed });
+          setProposals(toTxProposals(parsed, 'pending'));
+          if (rawPolicy) setPolicyField(rawPolicy);
+          const match = d.accounts.find((a) => a.kind === 'credit' && a.last4 === parsed.card.last4);
+          setTargetId(match?.id ?? 'new');
+          setNewName(parsed.card.name);
+          return;
+        }
+        const result = parseQuickImport(JSON.stringify(raw));
         if (result.loans.length === 0 && result.cards.length === 0) return setStage({ error: 'read-failed' });
         setStage({ quick: result });
         setQuickLoans(result.loans.map((l) => ({ ...l, include: true })));
